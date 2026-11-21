@@ -44,6 +44,14 @@ let inputLog: number[] = [];
 let lastAttempt: { score: number[]; borrowed: number[]; inputs: number[]; borrowedLight?: chain.Light } | null = null;
 let playback: number[] = [];
 let replayBorrowed: number[] = [];
+// The optional paper boat is a local collectible. During pickup the recorded feet stand still.
+function playableLevel(id: number) {
+  const base = levels[id - 1];
+  return id === 2 ? { ...base, hasItem: true, itemX: 2750, itemRadius: 200, itemTicks: 12 } : base;
+}
+let checkpoint: typeof state | null = null;
+let stoneAvailable = false;
+let rehearsal = false;
 let isDemo = false;
 let paused = false;
 let awaitingStep = false;
@@ -133,7 +141,7 @@ function renderMap() {
     const p = save.progress[l.id]; const open = unlocked(l.id);
     const t = 0.1 + i * 0.2; const sag = (2 * (1 - t) * t * 140 + 6 * ((1 - t) ** 2 + t * t)) / 120;
     const state = p ? 'lit' : open ? 'open' : 'dark';
-    return `<button class="lamp-stop ${state} ${l.id === next ? 'current' : ''}" style="--x:${t * 100}%;--sag:${sag};--drop:${drops[i]}px" data-level="${l.id}" ${!open ? 'disabled' : ''} aria-label="第${numerals[l.id - 1]}夜 ${l.name}${!open ? '，尚未解锁' : p ? `，${p.stars}星` : ''}"><span class="cord" aria-hidden="true"></span><span class="lantern" aria-hidden="true">${numerals[l.id - 1]}</span><strong>${l.name}</strong><span class="mechanic">${open ? mechanics[l.id - 1] : '尚未点亮'}</span><span class="pips" aria-hidden="true">${[1, 2, 3].map(n => `<i class="${(p?.stars || 0) >= n ? 'on' : ''}"></i>`).join('')}</span></button>`;
+    return `<button class="lamp-stop ${state} ${l.id === next ? 'current' : ''}" style="--x:${t * 100}%;--sag:${sag};--drop:${drops[i]}px" data-level="${l.id}" ${!open ? 'disabled' : ''} aria-label="第${numerals[l.id - 1]}夜 ${l.name}${!open ? '，尚未解锁' : p ? `，${p.stars}星` : ''}"><span class="cord" aria-hidden="true"></span><span class="lantern" aria-hidden="true">${numerals[l.id - 1]}</span>${l.id === 2 && p?.hasItem ? '<svg class="boat-charm" viewBox="0 0 32 24" aria-label="纸船"><path d="M16 0v8" stroke="#bea271"/><path d="M4 13l10 2 8-8v7l7-1-7 8H11z" fill="#ead8ab"/><path d="m4 13 13 5 12-5" fill="none" stroke="#947b58"/></svg>' : ''}<strong>${l.name}</strong><span class="mechanic">${l.id === 2 && p?.hasItem ? '已带回纸船' : open ? mechanics[l.id - 1] : '尚未点亮'}</span><span class="pips" aria-hidden="true">${[1, 2, 3].map(n => `<i class="${(p?.stars || 0) >= n ? 'on' : ''}"></i>`).join('')}</span></button>`;
   }).join('');
   const lit = Object.keys(save.progress).length;
   $('map-progress').textContent = lit ? `已点亮 ${lit} / 5 盏灯，共 ${Object.values(save.progress).reduce((s, p) => s + p.stars, 0)} 星` : '无需钱包，即可开始。';
@@ -143,18 +151,18 @@ function renderMap() {
 }
 function openLevel(id: number) {
   if (!unlocked(id)) return;
-  level = levels[id - 1]; screen = 'game'; mode = 'ready'; state = createState(level); previousX = state.x;
+  checkpoint = null; stoneAvailable = false; rehearsal = false; level = playableLevel(id); screen = 'game'; mode = 'ready'; state = createState(level); previousX = state.x;
   document.body.dataset.scene = String(id);
   canvas.setAttribute('aria-label', `${level.name}与纸桥。使用方向键过桥，E键拾取。`);
   preview = null; triedFirstSwitch = false; repairHint = ''; borrowStartedAt = -Infinity;
   selectedCell = -1; selectedLamp = 1; isDemo = false; inputLog = []; lastAttempt = null; paused = false; txView = '';
   const stored = save.scores[id];
   score = stored && stored.length === level.beats && stored.every(n => n >= 1 && n <= level.lampCount) ? [...stored] : Array(level.beats).fill(1);
-  if (id === 1 && !stored) score = [...solutions.find(s => s.level === 1)!.score];
+  if (id <= 2 && !stored) score = [...solutions.find(s => s.level === id)!.score];
   held.clear(); interactionQueued = false; accumulator = 0; clockTick = 0; lastBeat = -1;
   $('map').hidden = true; $('game').hidden = false; $('reference-hint').hidden = true;
   $('place').textContent = level.name; $('subtitle').textContent = level.subtitle; $('route-label').textContent = `第${numerals[id - 1]}夜 / 共五夜`;
-  $('scene-item').textContent = level.itemRequired ? '带上灯笼，风铃才会响' : level.hasItem ? '纸船可拾取，也可以留给雨' : '亮着的纸桥，才有落脚处';
+  $('scene-item').textContent = level.id === 2 ? '第一座桥上有纸船 · 靠近按 E，留出约半秒拾取' : level.itemRequired ? '带上灯笼，风铃才会响' : level.hasItem ? '纸船可拾取，也可以留给雨' : '亮着的纸桥，才有落脚处';
   renderAll();
   if (level.borrowable) { void refreshPool(); openBorrow(); }
 }
@@ -229,6 +237,7 @@ function renderControls() {
   if (mode === 'ready' && repairHint) { title = '从落水的这一拍改起。'; tip = repairHint; }
   else if (mode === 'ready' && firstLesson()) { title = '试一试，把光照向第二座桥。'; tip = '点亮框标出的第 8 拍，看看纸桥怎样接住光。也可以直接开始过桥。'; }
   else if (mode === 'ready') { tip = level.id === 1 && triedFirstSwitch ? '点「开始过桥」，按住右行走向风铃。记得看脚下的桥是否亮着。' : '悬停或长按格子可以试光。点一下，从这一拍开始换灯。'; }
+  if (level.id === 2 && mode === 'ready' && !repairHint) { title = '过桥，还是带上那只纸船？'; tip = '可以直接去风铃。也可以在第一座桥上停下按 E 拾船，留意灯什么时候移走。'; }
   if (mode === 'recording') { title = '现在的光，会照着未来的脚步。'; tip = `按 1–${level.lampCount} 或点桥换灯。录满后会自动停下。`; buttons = button('结束录光', 'stop-record', true); badge = '正在录光'; }
   if (mode === 'playing') { title = awaitingStep ? '准备好了，就踏出第一步。' : state.busy ? (level.itemRequired ? '正把灯笼提起来……' : '正把纸船拾起来……') : '沿着自己的光，慢慢走。'; tip = awaitingStep ? '按住 → / D 开始。踏出第一步才计时，放松一点。' : '按住 → / D 向右，松开就停。在道具旁按 E，拾取时仍要留意潮水。'; buttons = button('重新走一遍', 'restart'); badge = awaitingStep ? '等你的第一步' : '正在过桥'; }
   if (mode === 'replay') { title = isDemo ? '看灯，也看什么时候停步。' : '回到那一拍，看看光去了哪里。'; tip = isDemo ? '这是参考走法，不记录成绩。记住等潮和拾取的位置，再亲自试试。' : '用原来的灯谱和按键逐帧重放。'; buttons = button('返回改谱', 'edit'); badge = isDemo ? '走法示范' : '回看脚步'; }
@@ -238,16 +247,22 @@ function renderControls() {
     else { title = '灯谱走完了，路还差一小段。'; tip = level.itemRequired && !state.hasItem ? '这一次忘了带灯笼。在灯笼旁按 E 拾取，风铃才会为你响。' : '可以少等一会儿，或重新安排灯光。'; badge = '灯谱结束'; }
     buttons = button('再走一次', 'start', true, !valid) + button(state.status === 'fell' ? '调整落水那一拍' : '修改灯谱', state.status === 'fell' ? 'repair' : 'edit') + (lastAttempt ? button('回看脚步', 'replay') : '');
   }
+  if (level.id === 2 && stoneAvailable && checkpoint && (mode === 'ready' || (mode === 'result' && state.status === 'fell'))) buttons += button('从桥头试走', 'stone', false, !valid);
+  if (rehearsal && mode === 'playing') badge = '桥头练习';
+  if (rehearsal && mode === 'result' && state.status === 'win') {
+    title = '这一段走通了。'; badge = '练习完成'; tip = '从起点再走一次，就能正式记录成绩与纸船。';
+    buttons = button('从起点正式走', 'start', true);
+  }
   $('hint-title').textContent = title; $('hint-text').textContent = tip; $('actions').innerHTML = buttons; $('badge').textContent = badge;
   $('game').toggleAttribute('data-awaiting', mode === 'playing' && awaitingStep);
   $('move-tools').hidden = mode !== 'playing';
   for (const node of document.querySelectorAll<HTMLButtonElement>('[data-action="reference"],[data-action="demo"]')) node.disabled = !canEdit();
-  $('result').hidden = mode !== 'result' || state.status !== 'win';
+  $('result').hidden = rehearsal || mode !== 'result' || state.status !== 'win';
   if (!$('result').hidden) renderResult();
 }
 function renderResult() {
   const stars = starsFor(level, state.finishTick!);
-  $('result').innerHTML = `<div><div class="result-details"><span class="stars" aria-label="${stars}星">${starText(stars)}</span><h3>${isDemo ? '走法示范' : '这一夜，平安抵达。'}</h3></div><p>${(state.finishTick! / 20).toFixed(2)} 秒 · ${state.finishTick} 帧${state.hasItem ? `　<span class="pill">${level.itemRequired ? '提灯归来' : '拾舟'}</span>` : ''}${level.borrowable && !isDemo ? '　借来的光，照完了一段路。' : ''}</p><div id="tx-status" class="tx-status">${txView || (isDemo ? '示范不计入成绩，请亲自走一遍。' : '本地成绩已保存。' + (!chain.contractAddress ? '合约部署后可继续上链。' : ''))}</div></div><div class="transaction-tools">${!isDemo ? button('把这束光写上链', 'submit', false, txBusy) : ''}${level.id < 5 && !isDemo ? button('去下一夜', 'next', true) : button('回到长街', 'map', true)}</div>`;
+  $('result').innerHTML = `<div><div class="result-details"><span class="stars" aria-label="${stars}星">${starText(stars)}</span><h3>${isDemo ? '走法示范' : '这一夜，平安抵达。'}</h3></div><p>${(state.finishTick! / 20).toFixed(2)} 秒 · ${state.finishTick} 帧${state.hasItem ? `　<span class="pill">${level.itemRequired ? '提灯归来' : level.id === 2 ? '纸船已挂上第二盏灯' : '拾舟'}</span>` : ''}${level.borrowable && !isDemo ? '　借来的光，照完了一段路。' : ''}</p><div id="tx-status" class="tx-status">${txView || (isDemo ? '示范不计入成绩，请亲自走一遍。' : '本地成绩已保存。' + (!chain.contractAddress ? '合约部署后可继续上链。' : ''))}</div></div><div class="transaction-tools">${!isDemo ? button('把这束光写上链', 'submit', false, txBusy) : ''}${level.id < 5 && !isDemo ? button('去下一夜', 'next', true) : button('回到长街', 'map', true)}</div>`;
 }
 function renderAll() { renderTracks(); renderControls(); updateHeader(); }
 function updateClock() {
@@ -271,19 +286,24 @@ function chooseLamp(lamp: number) {
   } else if (selectedCell >= 0) { score[selectedCell] = lamp; writeScore(); }
   selectedLamp = lamp; audio.tick(lamp); renderAll();
 }
-function startRun() {
+function startRun(fromStone = false) {
   if (!validateScore(level, score)) { toast('灯油不够了，请减少灯谱中的切换次数。'); return; }
-  preview = null; repairHint = ''; writeScore(); mode = 'playing'; state = createState(level); previousX = state.x; clockTick = 0; accumulator = 0; lastBeat = -1;
+  preview = null; repairHint = ''; writeScore(); mode = 'playing'; rehearsal = fromStone && checkpoint !== null;
+  state = rehearsal ? { ...checkpoint! } : createState(level);
+  if (!rehearsal) { checkpoint = null; stoneAvailable = false; }
+  previousX = state.x; clockTick = state.tick; accumulator = 0; lastBeat = -1;
   isDemo = false; paused = false; awaitingStep = true; inputLog = []; selectedCell = -1; held.clear(); interactionQueued = false; txView = '';
   audio.unlock(); renderAll();
 }
 function startRecording() {
+  checkpoint = null; stoneAvailable = false; rehearsal = false;
   preview = null; repairHint = ''; mode = 'recording'; state = createState(level); recordTick = 0; clockTick = 0; accumulator = 0; lastBeat = -1; paused = false; isDemo = false;
   score = Array(level.beats).fill(selectedLamp); selectedCell = -1; audio.unlock(); renderAll();
 }
 function edit() { preview = null; repairHint = ''; mode = 'ready'; state = createState(level); previousX = state.x; clockTick = 0; paused = false; isDemo = false; held.clear(); renderAll(); }
 function referenceSolution() { return solutions.find(s => s.level === level.id && (!level.borrowable || s.seedKey === borrowed.seedKey)) || solutions.find(s => s.level === level.id); }
 function useReference(demo: boolean) {
+  checkpoint = null; stoneAvailable = false; rehearsal = false;
   preview = null; repairHint = '';
   const solution = referenceSolution(); if (!solution) return;
   if (level.borrowable && solution.seedKey !== borrowed.seedKey) { borrowed = seedLights.find(s => s.seedKey === solution.seedKey)!; toast('参考走法配套使用内置陌生人的光。'); }
@@ -302,16 +322,18 @@ function useReference(demo: boolean) {
 }
 function replayAttempt() {
   if (!lastAttempt) return;
+  checkpoint = null; stoneAvailable = false; rehearsal = false;
   if (lastAttempt.borrowedLight) borrowed = { ...lastAttempt.borrowedLight, score: [...lastAttempt.borrowedLight.score] };
   mode = 'replay'; isDemo = false; score = [...lastAttempt.score]; playback = [...lastAttempt.inputs]; replayBorrowed = [...lastAttempt.borrowed];
   state = createState(level); previousX = state.x; clockTick = 0; accumulator = 0; paused = false; lastBeat = -1; held.clear(); renderAll();
 }
 function finishRun(wasPlaying: boolean) {
+  if (wasPlaying && level.id === 2 && state.status === 'fell') stoneAvailable = true;
   const finishedMode = mode; mode = 'result'; held.clear(); interactionQueued = false;
-  if (wasPlaying) lastAttempt = { score: [...score], borrowed: [...borrowedScore()], inputs: [...inputLog], borrowedLight: level.borrowable ? { ...borrowed, score: [...borrowed.score] } : undefined };
+  if (wasPlaying && !rehearsal) lastAttempt = { score: [...score], borrowed: [...borrowedScore()], inputs: [...inputLog], borrowedLight: level.borrowable ? { ...borrowed, score: [...borrowed.score] } : undefined };
   if (state.status === 'win') {
     audio.win();
-    if (wasPlaying) {
+    if (wasPlaying && !rehearsal) {
       recordBest(save, level.id, { tick: state.finishTick!, stars: starsFor(level, state.finishTick!), hasItem: state.hasItem });
       save.recent = { level: level.id, score: [...score], inputs: inputLog.slice(0, state.finishTick), borrowed: [...borrowedScore()], borrowedId: level.borrowable ? borrowed.id : '0', seedKey: level.borrowable ? borrowed.seedKey : undefined, finishTick: state.finishTick!, hasItem: state.hasItem };
       persist(save);
@@ -335,7 +357,10 @@ function fixedUpdate() {
     renderControls();
   }
   interactionQueued = false;
-  if (mode === 'playing') inputLog.push(action);
+  if (mode === 'playing') {
+    if (level.id === 2 && !level.gaps.some(g => state.x > g.a && state.x < g.b)) checkpoint = { ...state };
+    inputLog.push(level.id === 2 && state.busy > 0 ? 0 : action);
+  }
   previousX = state.x;
   const hadItem = state.hasItem; const wasBusy = state.busy > 0;
   state = step(level, state, score, mode === 'replay' ? replayBorrowed : borrowedScore(), action);
@@ -434,7 +459,7 @@ async function handleAction(action: string) {
     case 'recent': {
       const run = save.recent; if (!run) break;
       try {
-        const result = simulate(levels[run.level - 1], run.score, run.inputs, run.borrowed);
+        const result = simulate(playableLevel(run.level), run.score, run.inputs, run.borrowed);
         if (result.status !== 'win') throw new Error('上次记录不完整，请重新过桥。');
         openLevel(run.level);
         if (dialog.open) closeDialog();
@@ -450,6 +475,7 @@ async function handleAction(action: string) {
     case 'continue': openLevel(levels.find(l => !save.progress[l.id])?.id || 5); break;
     case 'practice': practice = !practice; renderMap(); toast(practice ? '自由练习已开启，五关都可以试走。' : '回到逐关点灯。'); break;
     case 'start': case 'restart': startRun(); break;
+    case 'stone': if (level.id === 2 && checkpoint) startRun(true); break;
     case 'record': startRecording(); break;
     case 'stop-record': mode = 'ready'; writeScore(); renderAll(); break;
     case 'edit': edit(); break;

@@ -381,6 +381,10 @@ export function createRenderer(canvas: HTMLCanvasElement): {
     const own = view.preview?.lamp ?? (view.mode === 'recording' || view.mode === 'ready'
       ? view.selectedLamp || view.score[beat] || 1 : view.score[beat] || 1);
     const borrowed = view.borrowed[beat] || 0;
+    if (level.id === 2 && (view.mode === 'ready' || view.mode === 'playing')) {
+      const next = Array.from(view.score).findIndex((lamp, index) => index > beat && lamp !== view.score[beat]);
+      if (next >= 0) label(ctx, `第${next + 1}拍 → 桥${ROMAN[view.score[next] - 1]}`, 246, 166, '#ffe1a3', 13);
+    }
     const pulse = level.beatTicks === 8 && !reducedMotion && view.mode === 'playing'
       ? 0.8 + 0.2 * (1 - (lastTick % level.beatTicks) / level.beatTicks) : 1;
 

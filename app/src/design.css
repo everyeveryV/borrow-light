@@ -251,3 +251,6 @@ button.quiet:hover:not(:disabled){background:transparent;border-color:transparen
   .move-tools button { min-height:46px }
 }
 @media (prefers-reduced-motion:reduce) { .lamp-stop::before { transition:none } }
+
+.lamp-stop .boat-charm { width:26px; height:20px; margin-bottom:-10px; }
+@media(max-width:620px){ .lamp-stop .boat-charm { width:21px; margin:0 -8px; } }

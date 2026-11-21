@@ -38,7 +38,7 @@ export function persist(data: SaveData) {
 }
 export function recordBest(data: SaveData, level: number, result: Progress) {
   const old = data.progress[level];
-  data.progress[level] = !old || result.tick < old.tick ? result : { ...old, hasItem: old.hasItem || result.hasItem };
+  data.progress[level] = { ...(!old || result.tick < old.tick ? result : old), hasItem: Boolean(old?.hasItem || result.hasItem) };
   persist(data);
 }
 export const shortAddress = (address: string) => /^0x[0-9a-f]{40}$/i.test(address) ? `${address.slice(0, 6)}…${address.slice(-4)}` : address;
