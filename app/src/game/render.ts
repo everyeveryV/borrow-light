@@ -44,6 +44,7 @@ export interface RenderState {
 }
 
 export interface RenderView {
+  liveLamp?: boolean;
   stallLit?: boolean;
   level: RenderLevel;
   state: RenderState;
@@ -395,6 +396,9 @@ export function createRenderer(canvas: HTMLCanvasElement): {
       stroke(ctx, [[x, y], [x + 8 + i % 17, y]], '#acc4bc3b');
     }
     beam(level, own, false, pulse);
+    // A single glint follows a newly lit bridge; the bridge itself is safe immediately.
+    const settling = ((lastTick % level.beatTicks) + Math.min(1, view.alpha)) / level.beatTicks;
+    const changed = beat > 0 && (view.mode === 'playing' || view.mode === 'replay') && state.status === 'playing';
     const arrival = reducedMotion ? 1 : view.borrowArrival ?? 1;
     if (borrowed) {
       const x = WIDTH - 198;
@@ -424,6 +428,16 @@ export function createRenderer(canvas: HTMLCanvasElement): {
       ellipse(ctx,x,GROUND-29,5,7,view.stallLit ? '#ffe6a1' : '#544e47');
       label(ctx, view.stallLit ? '夜摊已亮' : '夜摊 · E 点灯', x, GROUND-53, view.stallLit ? GOLD : '#dbc9ae', 11);
     }
+    if (changed && !reducedMotion && settling < .85) {
+      for (const g of level.gaps) {
+        const wasLit = view.score[beat - 1] === g.lamp || view.borrowed[beat - 1] === g.lamp;
+        if (g.kind !== 'lamp' || wasLit || (g.lamp !== own && g.lamp !== borrowed)) continue;
+        const t = settling / .85, x = (g.a + (g.b-g.a)*(1-(1-t)**2)) / 10;
+        ctx.save(); ctx.globalAlpha = (1-t)*.85; ctx.shadowBlur = 13; ctx.shadowColor = g.lamp === own ? GOLD : BLUE;
+        stroke(ctx, [[Math.max(g.a/10,x-20),GROUND-4],[x,GROUND-4]],ctx.shadowColor,3);
+        ellipse(ctx,x,GROUND-4,3,2,'#fff7d9'); ctx.restore();
+      }
+    }
     const door = level.bellX / 10 - 6;
     const locked = level.itemRequired && !state.hasItem;
     poly(ctx, [[door - 17, GROUND - 3], [door - 17, 278], [door - 9, 266],
@@ -449,7 +463,7 @@ export function createRenderer(canvas: HTMLCanvasElement): {
     poly(ctx, [[-1, 29], [3, 30], [2, 39], [-2, 38]], '#d4634c');
     ctx.restore();
 
-    if (level.hasItem && !state.hasItem) {
+    if (level.hasItem && !state.hasItem && !view.liveLamp) {
       const x = level.itemX / 10;
       if (level.itemRequired) {
         stroke(ctx, [[x - 18, GROUND - 1], [x - 18, GROUND - 55], [x, GROUND - 55]], '#6a5340', 3);

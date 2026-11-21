@@ -276,3 +276,24 @@ button.quiet:hover:not(:disabled){background:transparent;border-color:transparen
   #game .move-tools,#game .lamp-tools { flex-wrap:wrap }
   #game .cell:focus-visible { outline:2px solid var(--paper); z-index:1 }
 }
+
+/* The desk route is a string of small paper lanterns, read from left to right. */
+.crossing-strip,.cross-cue {display:none}
+@media(min-width:1000px) {
+  .crossing-strip{display:block;color:#b2c4bc}
+  .crossing-strip small{display:block;font-size:11px;letter-spacing:.22em}
+  .crossing-strip>div{display:flex;isolation:isolate;margin-top:8px}
+  .crossing-strip span{position:relative;flex:1;text-align:center;color:#b6c7c2;font-size:11px;line-height:1.5}
+  .crossing-strip span:not(:last-child)::after{content:'';position:absolute;z-index:-1;top:8px;left:50%;width:100%;border-top:1px solid #617774}
+  .crossing-strip i{display:block;box-sizing:border-box;width:12px;height:15px;border:1px solid #738883;background:#20383a;border-radius:5px;margin:1px auto 5px;transition:background .18s,box-shadow .18s}
+  .crossing-strip [data-light=own] i,.crossing-strip[data-arrived] [data-bell] i{background:#f0c060;box-shadow:0 0 10px #e9b25166;border-color:#ffe1a1}
+  .crossing-strip :is([data-light=lent],[data-light=tide]) i{background:#8ed0d0;border-color:#caeae4;box-shadow:0 0 9px #8ed0d044}
+  .crossing-strip [data-light=crossed] i{background:#d6bd88;color:#203337;border-color:#d6bd88;font: bold 10px/13px sans-serif}
+  .crossing-strip [data-light=crossed] i::after{content:'✓'}
+  .crossing-strip [data-bell] i{border-radius:9px 9px 3px 3px}
+  .cross-cue:not([hidden]){position:absolute;display:block;pointer-events:none;z-index:2;top:47%;left:48%;transform:translate(-50%,-50%);padding:7px 13px 8px;border:1px solid #af9969;border-radius:3px;background:#142a2eee;color:#f1dec0;font:600 clamp(12px,1vw,16px)/1.4 var(--sans);white-space:nowrap;box-shadow:0 4px 12px #08191c55}
+  .cross-cue::after{content:'';position:absolute;left:50%;top:100%;height:18px;border-left:1px solid #ddba73}
+  .cross-cue[data-phase=switch]{background:#f0cf87;color:#292c26;border-color:#ffe4a5;box-shadow:0 0 20px #f0c06055}
+  .cross-cue[data-phase=start]{left:24%}.cross-cue[data-phase=lit]{left:67%}
+}
+@media(prefers-reduced-motion:reduce){.crossing-strip i{transition:none}}
