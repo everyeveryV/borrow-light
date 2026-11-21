@@ -54,6 +54,8 @@ export interface RenderView {
   alpha: number;
   previousX?: number;
   selectedLamp: number;
+  preview?: { beat: number; lamp: number } | null;
+  borrowArrival?: number;
   borrowedAuthor?: string;
   paused?: boolean;
 }
@@ -84,7 +86,7 @@ function stroke(c: CanvasRenderingContext2D, points: Point[], color: string, wid
 }
 
 function ellipse(c: CanvasRenderingContext2D, x: number, y: number,
-  rx: number, ry: number, color: string): void {
+  rx: number, ry: number, color: Paint): void {
   c.fillStyle = color;
   c.beginPath();
   c.ellipse(x, y, Math.max(0, rx), Math.max(0, ry), 0, 0, Math.PI * 2);
@@ -250,6 +252,13 @@ export function createRenderer(canvas: HTMLCanvasElement): {
           origin[1] + (GROUND - origin[1]) * progress, 1.1, 1.7, borrowed ? '#c4f6f188' : '#ffe9ab99');
       }
     }
+    // Each reflection stays underneath the bridge lit by this lamp.
+    for (let row = 0; row < 6; row++) {
+      const y = GROUND + 21 + row * 6;
+      const drift = Math.sin(row * 2.6 + (reducedMotion ? 0 : visualTime * 1.3)) * (row + 2);
+      ellipse(c, destination + drift, y, halfWidth * (0.46 - row * 0.052), 1,
+        borrowed ? '#a2ddd53d' : '#e9c77a40');
+    }
     c.translate(origin[0], origin[1]);
     c.rotate(Math.atan2(GROUND - origin[1], destination - origin[0]) - Math.PI / 2);
     poly(c, [[-5, -9], [5, -9], [11, 4], [-11, 4]], borrowed ? '#78a4ab' : '#c29455');
@@ -368,9 +377,9 @@ export function createRenderer(canvas: HTMLCanvasElement): {
     ctx.clearRect(0, 0, WIDTH, HEIGHT);
     ctx.drawImage(scenery, 0, 0);
     const lastTick = view.mode === 'recording' ? state.tick : Math.max(0, state.tick - 1);
-    const beat = Math.min(level.beats - 1, Math.floor(lastTick / level.beatTicks));
-    const own = view.mode === 'recording' || view.mode === 'ready'
-      ? view.selectedLamp || view.score[beat] || 1 : view.score[beat] || 1;
+    const beat = view.preview?.beat ?? Math.min(level.beats - 1, Math.floor(lastTick / level.beatTicks));
+    const own = view.preview?.lamp ?? (view.mode === 'recording' || view.mode === 'ready'
+      ? view.selectedLamp || view.score[beat] || 1 : view.score[beat] || 1);
     const borrowed = view.borrowed[beat] || 0;
     const pulse = level.beatTicks === 8 && !reducedMotion && view.mode === 'playing'
       ? 0.8 + 0.2 * (1 - (lastTick % level.beatTicks) / level.beatTicks) : 1;
@@ -381,9 +390,17 @@ export function createRenderer(canvas: HTMLCanvasElement): {
       stroke(ctx, [[x, y], [x + 8 + i % 17, y]], '#acc4bc3b');
     }
     beam(level, own, false, pulse);
-    if (borrowed) beam(level, borrowed, true, 1);
+    const arrival = reducedMotion ? 1 : view.borrowArrival ?? 1;
+    if (borrowed) {
+      const x = WIDTH - 198;
+      const glow = ctx.createRadialGradient(x, 178, 1, x, 178, 37);
+      glow.addColorStop(0, 'rgba(188,247,240,.48)'); glow.addColorStop(1, 'transparent');
+      ctx.save(); ctx.globalAlpha = Math.min(1, arrival * 5);
+      ellipse(ctx, x, 178, 37, 37, glow); ctx.restore();
+      beam(level, borrowed, true, Math.min(1, Math.max(0, (arrival - 0.12) * 2.3)));
+    }
     for (const gap of level.gaps) {
-      if (gap.kind === 'lamp') lampBridge(gap, own, borrowed);
+      if (gap.kind === 'lamp') lampBridge(gap, own, arrival >= 0.56 ? borrowed : 0);
       else tidePlatform(gap, beat, level.beats);
     }
     character(145, 148, 0.94, view.mode !== 'recording', 0);

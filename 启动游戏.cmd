@@ -8,6 +8,6 @@ if not exist "node_modules\.bin\vite.cmd" (
     exit /b 1
   )
 )
-echo 借个光即将打开。游玩时请保持此窗口开启。
+echo 光的回声即将打开。游玩时请保持此窗口开启。
 call npm run dev -- --open
 pause

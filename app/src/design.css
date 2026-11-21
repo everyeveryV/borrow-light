@@ -15,7 +15,7 @@
   --gold:var(--lamp);
   --muted:var(--mist);
   --edge:var(--line);
-  --serif:'LXGW WenKai','LXGW WenKai Screen','STKaiti','KaiTi','Songti SC',serif;
+  --serif:'Songti SC','STSong','SimSun','Noto Serif CJK SC',serif;
   --sans:'Microsoft YaHei UI','PingFang SC','Hiragino Sans GB',sans-serif;
 }
 body{background:radial-gradient(ellipse 80% 50% at 50% -10%,#21404a 0,transparent 70%),var(--night);color:var(--paper);font-family:var(--sans)}
@@ -228,3 +228,26 @@ button.quiet:hover:not(:disabled){background:transparent;border-color:transparen
   .move-tools button{flex:1}
   .result{padding:16px}
 }
+
+/* The four lettering blocks stack like a hanging shop sign on the map. */
+.wordmark { display:inline-flex; align-items:center; gap:.14em; vertical-align:middle }
+.wordmark svg { width:1.07em; height:.87em; fill:currentColor }
+.map-title .wordmark { flex-direction:column; gap:.19em; filter:drop-shadow(0 2px 8px #101e20) }
+.map-title { writing-mode:horizontal-tb }
+.brand-title { font-size:24px }
+.visually-hidden { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap }
+.lamp-stop::before { content:''; position:absolute; pointer-events:none; z-index:-1; width:220%; height:170%; top:0; left:-60%; background:radial-gradient(ellipse,rgba(240,192,96,.15),transparent 67%); opacity:0; transition:opacity .32s }
+.lamp-stop:is(:hover,:focus-visible):enabled::before { opacity:1 }
+.cell.preview, .cell:focus-visible { outline:2px solid var(--paper); outline-offset:1px; z-index:1 }
+.lesson-beat { outline:2px dashed var(--paper); outline-offset:1px }
+.borrow-caption { display:block; margin-top:8px; font-size:12px; color:var(--moon) }
+#scene-clock, #timeline-clock, .metrics, .board { font-variant-numeric:tabular-nums }
+#game[data-awaiting] [data-move=right] { border-color:var(--lamp); color:var(--lamp-hot); background:rgba(240,192,96,.10) }
+@media (max-width:620px) {
+  .brand { gap:7px }
+  .brand-title { font-size:19px }
+  .head-actions button { padding:8px 6px }
+  .lamp-stop::before { width:100%; height:100%; left:0; background:radial-gradient(ellipse at 12% 50%,rgba(240,192,96,.16),transparent 68%) }
+  .move-tools button { min-height:46px }
+}
+@media (prefers-reduced-motion:reduce) { .lamp-stop::before { transition:none } }
