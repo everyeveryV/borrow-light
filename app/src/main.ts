@@ -2,6 +2,7 @@ import './style.css';
 import './design.css';
 import './motion.css';
 import './keepsake.css';
+import './fit.css';
 import lettering from './ui/wordmark.svg?raw';
 import { levels, createState, step, simulate, switches, validateScore, starsFor, TICK_MS } from './game/sim';
 import { createRenderer } from './game/render';

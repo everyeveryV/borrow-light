@@ -47,7 +47,7 @@ button.quiet:hover:not(:disabled){background:transparent;border-color:transparen
 
 /* 关卡地图：一条街，一根绳，五盏灯 */
 .map{border:0;border-radius:4px;min-height:640px;background:#14262c;box-shadow:0 30px 80px rgba(0,0,0,.35)}
-.map-bg{opacity:1;background:linear-gradient(90deg,rgba(12,24,30,.92) 0%,rgba(12,24,30,.55) 38%,rgba(12,24,30,.1) 70%),linear-gradient(0deg,rgba(12,24,30,.95) 0%,rgba(12,24,30,.2) 45%,transparent 70%),url('/assets/plate.webp') center 40%/cover}
+.map-bg{opacity:1;background:linear-gradient(90deg,var(--veil,rgba(12,24,30,.92) 0%,rgba(12,24,30,.55) 38%,rgba(12,24,30,.1) 70%)),linear-gradient(0deg,rgba(12,24,30,.95) 0%,rgba(12,24,30,.2) 45%,transparent 70%),url('/assets/plate.webp') center 40%/cover}
 .map-content{display:grid;grid-template-rows:auto 1fr auto;min-height:640px;padding:44px 52px 26px}
 .map-intro{display:flex;align-items:flex-start;gap:26px;max-width:none}
 .map-title{writing-mode:vertical-rl;font:64px/1 var(--serif);letter-spacing:.22em;color:var(--paper);text-shadow:0 4px 30px rgba(0,0,0,.6);margin:0}
