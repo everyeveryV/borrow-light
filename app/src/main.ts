@@ -169,7 +169,15 @@ function renderMap() {
   }).join('');
   const lit = Object.keys(save.progress).length;
   $('map').toggleAttribute('data-complete', lit === 5);
-  $('map-progress').textContent = lit ? `已点亮 ${lit} / 5 盏灯，共 ${Object.values(save.progress).reduce((s, p) => s + p.stars, 0)} 星` : '无需钱包，即可开始。';
+  const starTotal = Object.values(save.progress).reduce((s, p) => s + p.stars, 0);
+  const boats = levels.filter(l => l.hasItem && !l.itemRequired);
+  const found = boats.filter(l => save.progress[l.id]?.hasItem).length;
+  const charms = [
+    ...(boats.length ? [[`纸船 ${found} / ${boats.length}`, found === boats.length ? 'on' : found ? 'some' : '', '沿路可以拾起的纸船']] : []),
+    ['夜摊', save.marketLit ? 'on' : '', '第五夜提着灯笼，点亮夜摊'],
+    ['满星', starTotal === 15 ? 'on' : '', '五夜全部三星'],
+  ];
+  $('map-progress').innerHTML = lit ? `${lit === 5 ? '长街全亮' : `已点亮 ${lit} / 5 盏灯`} · ${starTotal} / 15 星<span class="charms">${charms.map(([name, tone, tip]) => `<i class="${tone}" title="${tip}">${name}</i>`).join('')}</span>` : '无需钱包，即可开始。';
   $('continue-button').textContent = lit ? lit === 5 ? '再走一段雨夜' : `继续 · ${levels[next - 1].name}` : '点亮第一盏灯';
   $('practice-button').textContent = practice ? '返回逐关解锁' : '自由练习';
   $('recent-button').hidden = !save.recent;
@@ -186,7 +194,8 @@ function openLevel(id: number) {
   score = stored && stored.length === level.beats && stored.every(n => n >= 1 && n <= level.lampCount) ? [...stored] : Array(level.beats).fill(1);
   if (id !== 4 && !stored) score = [...solutions.find(s => s.level === id)!.score];
   held.clear(); interactionQueued = false; accumulator = 0; clockTick = 0; lastBeat = -1;
-  $('map').hidden = true; $('game').hidden = false; $('reference-hint').hidden = true;
+  // Hiding and showing the stage again replays its entrance, also between two nights.
+  $('map').hidden = true; $('game').hidden = true; void $('game').offsetWidth; $('game').hidden = false; $('reference-hint').hidden = true;
   $('place').textContent = level.name; $('subtitle').textContent = level.subtitle; $('route-label').textContent = `第${numerals[id - 1]}夜 / 共五夜`;
   $('scene-item').textContent = level.id === 2 ? '第一座桥上有纸船 · 靠近按 E，留出约半秒拾取' : level.itemRequired ? '带上灯笼，风铃才会响' : level.hasItem ? '纸船可拾取，也可以留给雨' : '亮着的纸桥，才有落脚处';
   $('crossing-strip').innerHTML = `<small>今夜路标</small><div>${level.gaps.map((g,i) => `<span data-gate="${i}"><i></i>${g.kind === 'tide' ? '渡口' : '桥' + numerals[g.lamp-1]}</span>`).join('')}<span data-bell><i></i>风铃</span></div>`;

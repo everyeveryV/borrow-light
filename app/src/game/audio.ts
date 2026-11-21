@@ -65,6 +65,14 @@ export function createAudio(): GameAudio {
   let motif: number[] = motifs[0];
   let lastMotif = -1;
 
+  /** A tab left in the background falls silent, and picks the night up again on return. */
+  const onVisibility = (): void => {
+    if (!context || context.state === 'closed') return;
+    if (document.hidden) void context.suspend().catch(() => {});
+    else if (enabled) void context.resume().catch(() => {});
+  };
+  document.addEventListener('visibilitychange', onVisibility);
+
   function build(Audio: typeof AudioContext): void {
     const ctx = new Audio();
     context = ctx;
@@ -72,7 +80,9 @@ export function createAudio(): GameAudio {
     master.gain.value = enabled ? 0.7 : 0;
     master.connect(ctx.destination);
     musicBus = ctx.createGain();
-    musicBus.gain.value = music ? 1 : 0;
+    // The rain and the score rise slowly instead of starting at full level.
+    musicBus.gain.value = 0;
+    musicBus.gain.setTargetAtTime(music ? 1 : 0, ctx.currentTime + 0.05, 0.9);
     musicBus.connect(master);
 
     const length = Math.floor(ctx.sampleRate * 2.6);
@@ -390,6 +400,7 @@ export function createAudio(): GameAudio {
     destroy() {
       disposed = true;
       enabled = false;
+      document.removeEventListener('visibilitychange', onVisibility);
       if (timer) clearInterval(timer);
       timer = undefined;
       if (context && context.state !== 'closed') void context.close().catch(() => {});
