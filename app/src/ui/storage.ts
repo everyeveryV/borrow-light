@@ -8,11 +8,11 @@ export interface SavedRun {
 export interface SaveData {
   marketLit?: boolean;
   version: 2; progress: Record<number, Progress>; scores: Record<number, number[]>;
-  recent: SavedRun | null; sound: boolean;
+  recent: SavedRun | null; sound: boolean; music?: boolean;
 }
 const key = 'borrow-light-v2';
 export function loadSave(): SaveData {
-  const empty: SaveData = { version: 2, progress: {}, scores: {}, recent: null, sound: false };
+  const empty: SaveData = { version: 2, progress: {}, scores: {}, recent: null, sound: true, music: true };
   try {
     const parsed = JSON.parse(localStorage.getItem(key) || 'null');
     if (!parsed || parsed.version !== 2) return empty;
@@ -32,7 +32,7 @@ export function loadSave(): SaveData {
       && Array.isArray(candidate.borrowed) && candidate.borrowed.length <= 32 && candidate.borrowed.every(n => Number.isInteger(n) && n >= 1 && n <= 5)
       && /^\d+$/.test(String(candidate.borrowedId)) && Number.isInteger(candidate.finishTick) && candidate.finishTick > 0
       ? candidate : null;
-    return { ...empty, marketLit: parsed.marketLit === true, progress, scores, recent, sound: parsed.sound === true };
+    return { ...empty, marketLit: parsed.marketLit === true, progress, scores, recent, sound: parsed.music === undefined ? true : parsed.sound === true, music: parsed.music !== false };
   } catch { return empty; }
 }
 export function persist(data: SaveData) {

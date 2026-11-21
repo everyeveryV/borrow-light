@@ -1,5 +1,6 @@
 import './style.css';
 import './design.css';
+import './motion.css';
 import lettering from './ui/wordmark.svg?raw';
 import { levels, createState, step, simulate, switches, validateScore, starsFor, TICK_MS } from './game/sim';
 import { createRenderer } from './game/render';
@@ -84,10 +85,13 @@ let txBusy = false;
 let txView = '';
 let poolBusy = false;
 let toastTimer: ReturnType<typeof setTimeout>;
+let freshTimer: ReturnType<typeof setTimeout>;
+let resultNote = '';
 const held = new Set<string>();
 let interactionQueued = false;
 const audio = createAudio();
 audio.setEnabled(save.sound);
+audio.setMusic(save.music !== false);
 
 const wordmark = '<span class="visually-hidden">光的回声</span><span class="wordmark" aria-hidden="true">' +
   ['guang', 'de', 'hui', 'sheng'].map(id => `<svg viewBox="0 0 64 52" focusable="false"><use href="#glyph-${id}"/></svg>`).join('') + '</span>';
@@ -147,7 +151,7 @@ const canEdit = () => mode === 'ready' || mode === 'result';
 const unlocked = (id: number) => practice || id === 1 || !!save.progress[id - 1] || !!save.progress[id];
 function toast(message: string) { clearTimeout(toastTimer); $('toast').textContent = message; $('toast').hidden = false; toastTimer = setTimeout(() => $('toast').hidden = true, 4400); }
 function updateHeader() {
-  $('sound-button').textContent = `声音 · ${audio.enabled ? '开' : '关'}`;
+  $('sound-button').innerHTML = `<i class="eq${audio.enabled && audio.musicEnabled ? ' on' : ''}" aria-hidden="true"><b></b><b></b><b></b></i>声音 · ${!audio.enabled ? '关' : audio.musicEnabled ? '全开' : '仅音效'}`;
   $('wallet-button').innerHTML = `<i class="status-dot ${chain.account ? 'connected' : ''}"></i>${chain.account ? shortAddress(chain.account) : '连接钱包'}`;
   $('game-network').textContent = chain.contractAddress ? 'Monad 测试网 · 通关可验证' : '本地试玩 · 通关自动保存';
   $('network-label').textContent = chain.contractAddress ? 'Monad 测试网' : '本地试玩 · 合约待部署';
@@ -159,9 +163,10 @@ function renderMap() {
     const p = save.progress[l.id]; const open = unlocked(l.id);
     const t = 0.1 + i * 0.2; const sag = (2 * (1 - t) * t * 140 + 6 * ((1 - t) ** 2 + t * t)) / 120;
     const state = p ? 'lit' : open ? 'open' : 'dark';
-    return `<button class="lamp-stop ${state} ${l.id === next ? 'current' : ''}" style="--x:${t * 100}%;--sag:${sag};--drop:${drops[i]}px" data-level="${l.id}" ${!open ? 'disabled' : ''} aria-label="第${numerals[l.id - 1]}夜 ${l.name}${!open ? '，尚未解锁' : p ? `，${p.stars}星` : ''}"><span class="cord" aria-hidden="true"></span><span class="lantern" aria-hidden="true">${numerals[l.id - 1]}</span>${l.id === 2 && p?.hasItem ? '<svg class="boat-charm" viewBox="0 0 32 24" aria-label="纸船"><path d="M16 0v8" stroke="#bea271"/><path d="M4 13l10 2 8-8v7l7-1-7 8H11z" fill="#ead8ab"/><path d="m4 13 13 5 12-5" fill="none" stroke="#947b58"/></svg>' : ''}<strong>${l.name}</strong><span class="mechanic">${l.id === 5 && save.marketLit ? '夜摊已点亮' : l.id === 2 && p?.hasItem ? '已带回纸船' : open ? mechanics[l.id - 1] : '尚未点亮'}</span><span class="pips" aria-hidden="true">${[1, 2, 3].map(n => `<i class="${(p?.stars || 0) >= n ? 'on' : ''}"></i>`).join('')}</span></button>`;
+    return `<button class="lamp-stop ${state} ${l.id === next ? 'current' : ''}" style="--x:${t * 100}%;--sag:${sag};--drop:${drops[i]}px;--i:${i}" data-level="${l.id}" ${!open ? 'disabled' : ''} aria-label="第${numerals[l.id - 1]}夜 ${l.name}${!open ? '，尚未解锁' : p ? `，${p.stars}星` : ''}"><span class="cord" aria-hidden="true"></span><span class="lantern" aria-hidden="true">${numerals[l.id - 1]}</span>${l.id === 2 && p?.hasItem ? '<svg class="boat-charm" viewBox="0 0 32 24" aria-label="纸船"><path d="M16 0v8" stroke="#bea271"/><path d="M4 13l10 2 8-8v7l7-1-7 8H11z" fill="#ead8ab"/><path d="m4 13 13 5 12-5" fill="none" stroke="#947b58"/></svg>' : ''}<strong>${l.name}</strong><span class="mechanic">${l.id === 5 && save.marketLit ? '夜摊已点亮' : l.id === 2 && p?.hasItem ? '已带回纸船' : open ? mechanics[l.id - 1] : '尚未点亮'}</span><span class="pips" aria-hidden="true">${[1, 2, 3].map(n => `<i class="${(p?.stars || 0) >= n ? 'on' : ''}"></i>`).join('')}</span></button>`;
   }).join('');
   const lit = Object.keys(save.progress).length;
+  $('map').toggleAttribute('data-complete', lit === 5);
   $('map-progress').textContent = lit ? `已点亮 ${lit} / 5 盏灯，共 ${Object.values(save.progress).reduce((s, p) => s + p.stars, 0)} 星` : '无需钱包，即可开始。';
   $('continue-button').textContent = lit ? lit === 5 ? '再走一段雨夜' : `继续 · ${levels[next - 1].name}` : '点亮第一盏灯';
   $('practice-button').textContent = practice ? '返回逐关解锁' : '自由练习';
@@ -171,6 +176,7 @@ function openLevel(id: number) {
   if (!unlocked(id)) return;
   liveLamp = false; waitingForTide = false; stallLit = false; checkpoint = null; stoneAvailable = false; rehearsal = false; level = playableLevel(id); screen = 'game'; mode = 'ready'; state = createState(level); previousX = state.x;
   document.body.dataset.scene = String(id);
+  audio.setScene(id, level.beatTicks / 20); resultNote = '';
   canvas.setAttribute('aria-label', `${level.name}与纸桥。使用方向键过桥，E键拾取。`);
   preview = null; triedFirstSwitch = false; repairHint = ''; borrowStartedAt = -Infinity;
   selectedCell = -1; selectedLamp = 1; isDemo = false; inputLog = []; lastAttempt = null; paused = false; txView = '';
@@ -189,6 +195,7 @@ function goMap() {
   if (dialog.open) closeDialog();
   screen = 'map'; paused = false; held.clear(); interactionQueued = false;
   delete document.body.dataset.scene;
+  audio.setScene(0);
   $('game').hidden = true; $('map').hidden = false; renderMap();
 }
 function writeScore() { save.scores[level.id] = [...score]; persist(save); }
@@ -295,6 +302,7 @@ function renderControls() {
     : mode === 'recording' ? '数字键选桥　Esc 暂停' : 'Esc 暂停';
   $('hint-title').textContent = title; $('hint-text').textContent = tip; $('actions').innerHTML = buttons; $('badge').textContent = badge;
   $('game').toggleAttribute('data-awaiting', mode === 'playing' && awaitingStep);
+  $('game').dataset.status = mode === 'result' && !rehearsal ? state.status : '';
   $('move-tools').hidden = mode !== 'playing';
   for (const node of document.querySelectorAll<HTMLButtonElement>('[data-action="reference"],[data-action="demo"]')) node.disabled = !canEdit();
   $('result').hidden = rehearsal || mode !== 'result' || state.status !== 'win';
@@ -302,7 +310,7 @@ function renderControls() {
 }
 function renderResult() {
   const stars = starsFor(level, state.finishTick!);
-  $('result').innerHTML = `<div><div class="result-details"><span class="stars" aria-label="${stars}星">${starText(stars)}</span><h3>${isDemo ? '走法示范' : '这一夜，平安抵达。'}</h3></div><p>${(state.finishTick! / 20).toFixed(2)} 秒 · ${state.finishTick} 帧${state.hasItem ? `　<span class="pill">${level.itemRequired ? (stallLit ? '夜摊亮了 · 提灯归来' : '提灯归来') : level.id === 2 ? '纸船已挂上第二盏灯' : '拾舟'}</span>` : ''}${level.borrowable && !isDemo ? '　借来的光，照完了一段路。' : ''}</p><div id="tx-status" class="tx-status">${txView || (isDemo ? '示范不计入成绩，请亲自走一遍。' : '本地成绩已保存。' + (!chain.contractAddress ? '合约部署后可继续上链。' : ''))}</div></div><div class="transaction-tools">${!isDemo ? button('把这束光写上链', 'submit', false, txBusy) : ''}${level.id < 5 && !isDemo ? button('去下一夜', 'next', true) : button('回到长街', 'map', true)}</div>`;
+  $('result').innerHTML = `<div><div class="result-details"><span class="stars" aria-label="${stars}星">${[1, 2, 3].map(n => `<i class="${n <= stars ? 'on' : ''}" style="--i:${n}">${n <= stars ? '★' : '☆'}</i>`).join('')}</span><h3>${isDemo ? '走法示范' : '这一夜，平安抵达。'}</h3></div><p>${(state.finishTick! / 20).toFixed(2)} 秒 · ${state.finishTick} 帧${resultNote && !isDemo ? `　<span class="pill record">${resultNote}</span>` : ''}${state.hasItem ? `　<span class="pill">${level.itemRequired ? (stallLit ? '夜摊亮了 · 提灯归来' : '提灯归来') : level.id === 2 ? '纸船已挂上第二盏灯' : '拾舟'}</span>` : ''}${level.borrowable && !isDemo ? '　借来的光，照完了一段路。' : ''}</p><div id="tx-status" class="tx-status">${txView || (isDemo ? '示范不计入成绩，请亲自走一遍。' : '本地成绩已保存。' + (!chain.contractAddress ? '合约部署后可继续上链。' : ''))}</div></div><div class="transaction-tools">${!isDemo ? button('把这束光写上链', 'submit', false, txBusy) : ''}${level.id < 5 && !isDemo ? button('去下一夜', 'next', true) : button('回到长街', 'map', true)}</div>`;
 }
 function renderAll() { renderTracks(); renderControls(); updateHeader(); }
 function updateCrossing() {
@@ -337,7 +345,15 @@ function updateClock() {
   const inspecting = mode === 'ready' ? preview : null;
   const tick = inspecting ? inspecting.beat * level.beatTicks : mode === 'recording' ? recordTick : clockTick;
   const total = level.beatTicks * level.beats;
-  $('scene-clock').textContent = `${(tick / 20).toFixed(2)} / ${(total / 20).toFixed(1)} 秒`;
+  const racing = (mode === 'playing' && !awaitingStep || mode === 'replay') && state.status === 'playing' && !rehearsal;
+  const pace = racing ? starsFor(level, tick + 1) : 0;
+  const clock = $('scene-clock');
+  clock.textContent = `${(tick / 20).toFixed(2)} / ${(total / 20).toFixed(1)} 秒${pace ? ' · ' + starText(pace) : ''}`;
+  if (clock.dataset.pace !== String(pace)) {
+    const dropped = pace > 0 && Number(clock.dataset.pace) > pace;
+    clock.dataset.pace = String(pace);
+    if (dropped && !matchMedia('(prefers-reduced-motion: reduce)').matches) clock.animate([{ transform: 'scale(1.2)', color: '#ff9a7e' }, { transform: 'scale(1)' }], { duration: 420, easing: 'ease-out' });
+  }
   $('timeline-clock').textContent = inspecting ? `试光 · 第 ${inspecting.beat + 1} 拍 · 桥${numerals[inspecting.lamp - 1]}` : `第 ${Math.min(level.beats, Math.floor(tick / level.beatTicks) + 1)} / ${level.beats} 拍`;
   $('cursor').hidden = mode === 'ready';
   $('cursor').style.setProperty('--f', String(Math.min(1, tick / total)));
@@ -400,14 +416,20 @@ function replayAttempt() {
   state = createState(level); previousX = state.x; clockTick = 0; accumulator = 0; paused = false; lastBeat = -1; held.clear(); renderAll();
 }
 function finishRun(wasPlaying: boolean) {
+  resultNote = '';
+  const panel = $('result'); panel.classList.remove('fresh'); void panel.offsetWidth; panel.classList.add('fresh');
+  clearTimeout(freshTimer); freshTimer = setTimeout(() => panel.classList.remove('fresh'), 2800);
   if (wasPlaying && state.status === 'fell') stoneAvailable = true;
   const finishedMode = mode; mode = 'result'; held.clear(); interactionQueued = false;
   if (wasPlaying && !rehearsal) lastAttempt = { score: [...score], borrowed: [...borrowedScore()], inputs: [...inputLog], borrowedLight: level.borrowable ? { ...borrowed, score: [...borrowed.score] } : undefined };
   if (state.status === 'win') {
-    audio.win();
+    audio.win(isDemo || rehearsal || !wasPlaying ? 0 : starsFor(level, state.finishTick!));
     if (wasPlaying && !rehearsal) {
       if (liveLamp) writeScore();
       if (level.id === 5 && stallLit) save.marketLit = true;
+      const old = save.progress[level.id];
+      resultNote = !old ? '第一次点亮这盏灯' : state.finishTick! < old.tick ? `新纪录 · 快了 ${((old.tick - state.finishTick!) / 20).toFixed(2)} 秒` : '';
+      if (old && state.finishTick! < old.tick) audio.record();
       recordBest(save, level.id, { tick: state.finishTick!, stars: starsFor(level, state.finishTick!), hasItem: state.hasItem });
       save.recent = { stallLit: level.id === 5 && stallLit, level: level.id, score: [...score], inputs: inputLog.slice(0, state.finishTick), borrowed: [...borrowedScore()], borrowedId: level.borrowable ? borrowed.id : '0', seedKey: level.borrowable ? borrowed.seedKey : undefined, finishTick: state.finishTick!, hasItem: state.hasItem };
       persist(save);
@@ -428,7 +450,7 @@ function fixedUpdate() {
   if (mode === 'playing' && liveLamp && action === 3) {
     interactionQueued = false;
     const next = Math.floor(state.tick / level.beatTicks) + 1;
-    if (next < level.beats) { score.fill(score[next] === 1 ? 2 : 1, next); renderTracks(); }
+    if (next < level.beats) { score.fill(score[next] === 1 ? 2 : 1, next); audio.swap(); renderTracks(); }
     action = held.has('right') ? 1 : held.has('left') ? 2 : 0;
   }
   if (mode === 'playing' && level.id === 3) {
@@ -442,7 +464,7 @@ function fixedUpdate() {
   }
   if (mode === 'playing' && awaitingStep) {
     if (action === 0) return;
-    awaitingStep = false;
+    awaitingStep = false; audio.begin(level.beatTicks / 20);
     renderControls();
   }
   interactionQueued = false;
@@ -462,6 +484,7 @@ function fixedUpdate() {
       : '过渡口后，岸边还有一只纸船';
   }
   if (!hadItem && state.hasItem) audio.pickup();
+  if (state.x !== previousX && state.status === 'playing') audio.step();
   if (wasBusy !== (state.busy > 0)) renderControls();
   const beat = Math.floor((state.tick - 1) / level.beatTicks);
   if (beat !== lastBeat) { lastBeat = beat; audio.tick(score[beat]); }
@@ -607,7 +630,15 @@ async function handleAction(action: string) {
     case 'next': openLevel(Math.min(5, level.id + 1)); break;
     case 'pause': pause(!paused); break;
     case 'resume': pause(false); break;
-    case 'sound': audio.setEnabled(!audio.enabled); audio.unlock(); save.sound = audio.enabled; persist(save); updateHeader(); break;
+    case 'sound': {
+      // 全开 → 仅音效 → 关 → 全开
+      if (!audio.enabled) { audio.setEnabled(true); audio.setMusic(true); }
+      else if (audio.musicEnabled) audio.setMusic(false);
+      else audio.setEnabled(false);
+      void audio.unlock(); save.sound = audio.enabled; save.music = audio.musicEnabled; persist(save); updateHeader();
+      toast(!audio.enabled ? '已静音。' : audio.musicEnabled ? '音乐与音效都开着。' : '只留音效，音乐先歇一会儿。');
+      break;
+    }
     case 'help': showHelp(); break;
     case 'close-dialog': closeDialog(); break;
     case 'borrow': openBorrow(); break;
@@ -671,6 +702,7 @@ track.addEventListener('pointercancel', () => { clearTimeout(holdTimer); heldPre
 document.addEventListener('click', event => {
   const target = (event.target as HTMLElement).closest<HTMLElement>('button'); if (!target || (target as HTMLButtonElement).disabled) return;
   audio.unlock();
+  if (target.dataset.cell === undefined && !target.dataset.lamp && target.dataset.action !== 'sound') audio.click();
   if (target.dataset.level) openLevel(Number(target.dataset.level));
   else if (target.dataset.cell !== undefined && canEdit()) {
     if (target === heldPreviewCell && event.detail > 0) { heldPreviewCell = null; return; }
@@ -722,6 +754,7 @@ window.addEventListener('keyup', event => { const key = event.key.toLowerCase();
 window.addEventListener('blur', () => { held.clear(); interactionQueued = false; if (screen === 'game' && ['playing', 'recording', 'replay'].includes(mode)) pause(true); });
 document.addEventListener('visibilitychange', () => { if (document.hidden && screen === 'game' && ['playing', 'recording', 'replay'].includes(mode)) pause(true); });
 chain.onConnectionChange(updateHeader);
+for (const gesture of ['pointerdown', 'keydown'] as const) window.addEventListener(gesture, () => { void audio.unlock(); }, { once: true });
 updateHeader(); renderMap(); requestAnimationFrame(frame);
 const night = Number(new URLSearchParams(location.search).get('night'));
 if (Number.isInteger(night) && night >= 1 && night <= levels.length) { practice = true; openLevel(night); }

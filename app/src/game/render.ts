@@ -137,6 +137,8 @@ export function createRenderer(canvas: HTMLCanvasElement): {
   let lastX = 0;
   let face = 1;
   let disposed = false;
+  let hadItem = false;
+  let pickupTime = -10;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   function bank(c: CanvasRenderingContext2D, a: number, b: number): void {
     if (b <= a) return;
@@ -377,6 +379,10 @@ export function createRenderer(canvas: HTMLCanvasElement): {
     }
     ctx.setTransform(width / WIDTH, 0, 0, height / HEIGHT, 0, 0);
     ctx.clearRect(0, 0, WIDTH, HEIGHT);
+    // The whole street shudders for a moment when the walker hits the water.
+    const quake = state.status === 'fell' && !reducedMotion && eventTime > 0.36 && eventTime < 0.8
+      ? (1 - (eventTime - 0.36) / 0.44) * 5 : 0;
+    if (quake) ctx.translate(Math.sin(eventTime * 71) * quake, Math.cos(eventTime * 93) * quake * 0.7);
     ctx.drawImage(scenery, 0, 0);
     const lastTick = view.mode === 'recording' ? state.tick : Math.max(0, state.tick - 1);
     const beat = view.preview?.beat ?? Math.min(level.beats - 1, Math.floor(lastTick / level.beatTicks));
@@ -395,11 +401,43 @@ export function createRenderer(canvas: HTMLCanvasElement): {
       const y = 385 + (i * 17 % 75);
       stroke(ctx, [[x, y], [x + 8 + i % 17, y]], '#acc4bc3b');
     }
+    if (!reducedMotion) {
+      // Rain rings open on the canal, and a paper boat left by an earlier walker drifts by.
+      for (let i = 0; i < 16; i++) {
+        const life = (visualTime * 0.7 + i * 0.37) % 1;
+        const seed = Math.floor(visualTime * 0.7 + i * 0.37) * 7 + i * 13;
+        ctx.strokeStyle = `rgba(206,232,236,${(0.34 * (1 - life)).toFixed(3)})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.ellipse((seed * 127.1) % WIDTH, 418 + (seed * 53.7) % 36, 2 + life * 11, 0.8 + life * 3, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      const drift = (visualTime * 7 + level.id * 190) % (WIDTH + 160) - 80;
+      const bob = 436 + Math.sin(visualTime * 1.3) * 1.5;
+      ctx.save();
+      ctx.globalAlpha = 0.78;
+      poly(ctx, [[drift - 10, bob], [drift - 4, bob + 6], [drift + 9, bob + 6], [drift + 15, bob]], '#f1deb7');
+      poly(ctx, [[drift - 2, bob], [drift + 6, bob - 8], [drift + 6, bob]], '#fff1c9');
+      ctx.restore();
+      stroke(ctx, [[drift - 16, bob + 8], [drift + 20, bob + 8]], '#cfe6e655', 1);
+    }
     beam(level, own, false, pulse);
     // A single glint follows a newly lit bridge; the bridge itself is safe immediately.
     const settling = ((lastTick % level.beatTicks) + Math.min(1, view.alpha)) / level.beatTicks;
     const changed = beat > 0 && (view.mode === 'playing' || view.mode === 'replay') && state.status === 'playing';
     const arrival = reducedMotion ? 1 : view.borrowArrival ?? 1;
+    // Every beat sends one ring out from the lamp on the balcony.
+    if (!reducedMotion && view.mode !== 'ready' && view.mode !== 'result' && state.status === 'playing'
+      && state.tick > 0 && settling < 0.6) {
+      ctx.save();
+      ctx.globalAlpha = (1 - settling / 0.6) * 0.5;
+      ctx.strokeStyle = GOLD;
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.arc(198, 178, 7 + settling * 34, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
     if (borrowed) {
       const x = WIDTH - 198;
       const glow = ctx.createRadialGradient(x, 178, 1, x, 178, 37);
@@ -489,6 +527,18 @@ export function createRenderer(canvas: HTMLCanvasElement): {
     let y = GROUND - 3;
     if (state.status === 'fell') y += Math.min(92, eventTime * eventTime * 290);
     if (state.busy > 0) y -= Math.sin((1 - state.busy / Math.max(1, level.itemTicks)) * Math.PI) * 9;
+    if (state.status === 'win' && !reducedMotion) y -= Math.abs(Math.sin(eventTime * 7)) * 11 * Math.exp(-eventTime * 1.3);
+    if (state.hasItem && !hadItem && state.tick > 0) pickupTime = visualTime;
+    hadItem = state.hasItem;
+    if (walking && !reducedMotion) {
+      // Motes of lamplight scatter behind each step.
+      for (let i = 0; i < 6; i++) {
+        const age = (visualTime * 2.4 + i / 6) % 1;
+        const size = 1.7 * (1 - age) + 0.3;
+        ellipse(ctx, x - face * (6 + age * 26) + Math.sin(i * 5.1) * 3, GROUND - 4 - age * 12 - (i % 3) * 2,
+          size, size, `rgba(255,228,160,${(0.75 * (1 - age)).toFixed(3)})`);
+      }
+    }
     ctx.save();
     if (state.status === 'fell') ctx.globalAlpha = Math.max(0.12, 1 - eventTime * 0.8);
     character(x, y, 1.1, false, walking ? visualTime * 10 : 0, face);
@@ -506,18 +556,82 @@ export function createRenderer(canvas: HTMLCanvasElement): {
       ctx.arc(x, y - 66, 10, -Math.PI / 2, -Math.PI / 2 + fraction * Math.PI * 2);
       ctx.stroke();
     }
+    const burst = visualTime - pickupTime;
+    if (burst >= 0 && burst < 0.7 && !reducedMotion) {
+      ctx.save();
+      ctx.globalAlpha = 1 - burst / 0.7;
+      ctx.strokeStyle = '#ffe9b0';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(x, y - 30, 8 + burst * 46, 0, Math.PI * 2);
+      ctx.stroke();
+      for (let i = 0; i < 8; i++) {
+        const angle = i * Math.PI / 4 + 0.3;
+        ellipse(ctx, x + Math.cos(angle) * (10 + burst * 60), y - 30 + Math.sin(angle) * (10 + burst * 60), 2, 2, '#fff3cf');
+      }
+      ctx.restore();
+    }
     if (state.status === 'fell') {
       ctx.strokeStyle = '#c2d9d7';
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.ellipse(x, GROUND + 46, Math.min(42, eventTime * 37), 4, 0, 0, Math.PI * 2);
       ctx.stroke();
+      const splash = eventTime - 0.36;
+      if (splash > 0 && splash < 1.3 && !reducedMotion) {
+        for (let i = 0; i < 16; i++) {
+          const angle = -Math.PI / 2 + (i - 7.5) * 0.14;
+          const speed = 120 + (i * 37 % 70);
+          const dx = Math.cos(angle) * speed * splash;
+          const dy = Math.sin(angle) * speed * splash + 210 * splash * splash;
+          if (dy > 6) continue;
+          ellipse(ctx, x + dx, GROUND + 44 + dy, 1.8, 2.6, `rgba(214,238,240,${Math.max(0, 0.9 - splash * 0.8).toFixed(3)})`);
+        }
+        for (let ring = 1; ring <= 2; ring++) {
+          const spread = splash - ring * 0.16;
+          if (spread <= 0) continue;
+          ctx.strokeStyle = `rgba(194,217,215,${Math.max(0, 0.7 - spread * 0.6).toFixed(3)})`;
+          ctx.beginPath();
+          ctx.ellipse(x, GROUND + 46, Math.min(74, spread * 64 + ring * 6), 4 + ring * 1.5, 0, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
       label(ctx, `↓ ${((state.fellTick ?? state.tick) * 0.05).toFixed(2)} 秒`, x, GROUND - 65, '#f7b08a', 13);
     }
     if (state.status === 'win' && !reducedMotion && eventTime < 5) {
       for (let i = 0; i < 18; i++) {
         const a = (i * 0.062 + eventTime * 0.18) % 1;
         ellipse(ctx, bell + Math.sin(i * 14 + a * 3) * 64 * a, 286 - a * 87, 1.8, 1.8, '#ffe8a9');
+      }
+    }
+    if (state.status === 'win' && !reducedMotion && view.mode === 'result') {
+      const flash = Math.max(0, 1 - eventTime / 1.1);
+      if (flash > 0) {
+        const halo = ctx.createRadialGradient(bell, 286, 2, bell, 286, 190);
+        halo.addColorStop(0, `rgba(255,232,170,${(flash * 0.55).toFixed(3)})`);
+        halo.addColorStop(1, 'rgba(255,232,170,0)');
+        ellipse(ctx, bell, 286, 190, 190, halo);
+      }
+      // Sky lanterns rise for every arrival, one after another.
+      for (let i = 0; i < 9; i++) {
+        const rise = (eventTime - i * 0.45) / 7.5;
+        if (rise <= 0 || rise >= 1) continue;
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, rise * 6, (1 - rise) * 3);
+        lantern(90 + (i * 263) % 940 + Math.sin(eventTime * 0.8 + i * 2.1) * 14, GROUND - 30 - rise * 330,
+          0.55 + (i % 3) * 0.14, i % 2 ? '#f7c873' : '#f2a65e', Math.sin(eventTime * 1.3 + i) * 0.08);
+        ctx.restore();
+      }
+    }
+    if (!reducedMotion) {
+      // Stray embers of lamplight hang in the wet air.
+      for (let i = 0; i < 12; i++) {
+        const glow = 0.35 + 0.35 * Math.sin(visualTime * 1.7 + i * 1.3);
+        if (glow <= 0.04) continue;
+        const fx = (i * 211 + Math.sin(visualTime * 0.21 + i * 1.7) * 46 + visualTime * (4 + i % 3)) % WIDTH;
+        const fy = 232 + (i * 47) % 108 + Math.sin(visualTime * 0.5 + i * 2.3) * 12;
+        ellipse(ctx, fx, fy, 5, 5, `rgba(255,226,150,${(glow * 0.16).toFixed(3)})`);
+        ellipse(ctx, fx, fy, 1.4, 1.4, `rgba(255,240,196,${glow.toFixed(3)})`);
       }
     }
     const rainCount = reducedMotion ? 15 : level.id === 3 ? 65 : 44;
