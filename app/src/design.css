@@ -254,3 +254,25 @@ button.quiet:hover:not(:disabled){background:transparent;border-color:transparen
 
 .lamp-stop .boat-charm { width:26px; height:20px; margin-bottom:-10px; }
 @media(max-width:620px){ .lamp-stop .boat-charm { width:21px; margin:0 -8px; } }
+
+.beat-number,.desk-keys { display:none }
+@media (min-width:1000px) {
+  body[data-scene] .shell { max-width:1540px; padding-inline:clamp(20px,3vw,54px) }
+  #game:not([hidden]) { display:grid; grid-template-columns:minmax(0,1fr) clamp(248px,23vw,340px); column-gap:18px; align-items:start }
+  #game .game-title { grid-area:1 / 1 / 2 / 3 }
+  #game .frame { grid-area:2 / 1; border-radius:4px 4px 0 0; box-shadow:none }
+  #game .console { display:contents }
+  #game .control-top { grid-area:2 / 2; align-self:stretch; display:flex; flex-direction:column; align-items:stretch; justify-content:flex-start; gap:18px; margin:0; padding:clamp(16px,1.5vw,26px); background:linear-gradient(155deg,#233d40,#14292e); border-top:2px solid #ad884e; border-radius:4px }
+  #game .control-copy h3 { font-size:clamp(19px,1.6vw,26px); line-height:1.45 }
+  #game .control-top .actions { justify-content:flex-start; flex-wrap:wrap }
+  #game .desk-keys { display:block; margin:auto 0 0; padding-top:12px; border-top:1px solid var(--line); font:12px/1.8 var(--sans); color:var(--mist) }
+  #game .timeline-head { grid-area:3 / 1; align-self:stretch; flex-wrap:wrap; gap:8px 16px; margin:0; padding:12px 14px 4px; background:var(--rain) }
+  #game .timeline-scroll { grid-area:4 / 1; padding:0 14px 10px; border-radius:0 0 4px 4px; background:var(--rain); min-width:0 }
+  .beat-number { display:block; font:10px/1.6 var(--sans); font-variant-numeric:tabular-nums; text-align:center; color:#aec2bc }
+  #game .console-bottom { grid-area:3 / 2; margin:8px 0 }
+  #game .console-foot { grid-area:4 / 2; display:flex; flex-direction:column; align-items:stretch; margin:0; padding:8px 0; gap:8px }
+  #game .secondary-tools { flex-wrap:wrap; justify-content:flex-start }
+  #game .fault-marker,#game .reference-hint,#game .result { grid-column:1 / -1 }
+  #game .move-tools,#game .lamp-tools { flex-wrap:wrap }
+  #game .cell:focus-visible { outline:2px solid var(--paper); z-index:1 }
+}

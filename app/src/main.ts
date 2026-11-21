@@ -117,7 +117,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `${lettering}
           <div id="pause-screen" class="pause-screen" hidden><h2>雨替你停一会儿。</h2><p>灯谱与脚步都已暂停</p><button class="primary" data-action="resume">继续过桥</button></div>
         </div>
         <section class="console" aria-label="灯谱控制台">
-          <div class="control-top"><div class="control-copy"><h3 id="hint-title"></h3><p id="hint-text"></p></div><div id="actions" class="actions"></div></div>
+          <div class="control-top"><div class="control-copy"><h3 id="hint-title"></h3><p id="hint-text"></p></div><div id="actions" class="actions"></div><p class="desk-keys" id="desk-keys"></p></div>
           <div class="timeline-head"><span class="legend" id="legend"></span><span class="metrics"><span id="oil"></span><span id="beat-info"></span><span id="par-info"></span><span id="item-info"></span></span><small id="timeline-clock"></small></div>
           <div class="timeline-scroll"><div class="score" id="own-track"></div><div class="timeline-scale" id="timeline-scale"></div></div>
           <div id="fault" class="fault-marker" hidden></div>
@@ -209,12 +209,13 @@ function renderTracks() {
   track.style.setProperty('--beats', String(level.beats));
   track.style.setProperty('--cell-h', `${level.lampCount >= 5 ? 17 : level.lampCount >= 4 ? 20 : level.lampCount === 3 ? 24 : 30}px`);
   track.classList.toggle('locked', !editable);
-  let cells = '';
+  let cells = '<span class="beat-number" aria-hidden="true"></span>' + Array.from({length: level.beats}, (_, i) =>
+    `<span class="beat-number" aria-hidden="true">${i + 1}</span>`).join('');
   for (let row = 1; row <= level.lampCount; row++) {
     cells += `<span class="row-label">桥${numerals[row - 1]}</span>`;
     for (let beat = 0; beat < level.beats; beat++) {
       const own = score[beat] === row; const lent = lend[beat] === row;
-      cells += `<button class="cell ${mode === 'ready' && firstLesson() && beat === 7 && row === 2 ? 'lesson-beat' : ''} ${own ? 'own' : ''} ${lent ? 'lent' : ''} ${selectedCell === beat ? 'selected' : ''} ${beat % 4 === 0 ? 'bar' : ''}" data-cell="${beat}" data-row="${row}" ${!editable ? 'disabled' : ''} aria-label="第${beat + 1}拍照桥${numerals[row - 1]}${own ? '，已选' : ''}${lent ? '，借来的光' : ''}"></button>`;
+      cells += `<button class="cell ${mode === 'ready' && firstLesson() && beat === 7 && row === 2 ? 'lesson-beat' : ''} ${own ? 'own' : ''} ${lent ? 'lent' : ''} ${selectedCell === beat ? 'selected' : ''} ${beat % 4 === 0 ? 'bar' : ''}" data-cell="${beat}" data-row="${row}" tabindex="${row === score[Math.max(0, selectedCell)] && beat === Math.max(0, selectedCell) ? 0 : -1}" ${!editable ? 'disabled' : ''} aria-label="第${beat + 1}拍照桥${numerals[row - 1]}${own ? '，已选' : ''}${lent ? '，借来的光' : ''}"></button>`;
     }
   }
   const tide = level.gaps.find(g => g.kind === 'tide');
@@ -276,6 +277,10 @@ function renderControls() {
     title = '这一段走通了。'; badge = '练习完成'; tip = '从起点再走一次，就能正式记录这段脚步。';
     buttons = button('从起点正式走', 'start', true);
   }
+  $('desk-keys').textContent = mode === 'ready' ? '点灯谱或用 Tab 进入 · ← → 选拍 · ↑ ↓ 试桥 · Enter 落笔'
+    : mode === 'result' && state.status === 'fell' && stoneAvailable ? 'R 从桥头试走　F 调整落水那一拍'
+    : mode === 'playing' ? `A / D 移动　${interact.textContent}　Esc 暂停`
+    : mode === 'recording' ? '数字键选桥　Esc 暂停' : 'Esc 暂停';
   $('hint-title').textContent = title; $('hint-text').textContent = tip; $('actions').innerHTML = buttons; $('badge').textContent = badge;
   $('game').toggleAttribute('data-awaiting', mode === 'playing' && awaitingStep);
   $('move-tools').hidden = mode !== 'playing';
@@ -586,7 +591,32 @@ let heldPreviewCell: HTMLElement | null = null;
 let holdTimer: ReturnType<typeof setTimeout>;
 track.addEventListener('pointerover', event => { if (event.pointerType !== 'touch') showPreview(cellFrom(event)); });
 track.addEventListener('pointerleave', () => showPreview(null));
-track.addEventListener('focusin', event => showPreview(cellFrom(event)));
+track.addEventListener('focusin', event => {
+  const cell = cellFrom(event);
+  if (!cell) return;
+  const entry = track.querySelector<HTMLElement>('[data-cell][tabindex="0"]');
+  if (entry) entry.tabIndex = -1;
+  cell.tabIndex = 0;
+  showPreview(cell);
+});
+track.addEventListener('keydown', event => {
+  const cell = cellFrom(event);
+  if (!cell || paused || mode !== 'ready' || event.altKey || event.metaKey || event.ctrlKey) return;
+  let beat = Number(cell.dataset.cell);
+  let row = Number(cell.dataset.row);
+  switch (event.key) {
+    case 'Enter': event.preventDefault(); if (!event.repeat) cell.click(); return;
+    case 'ArrowLeft': beat--; break;
+    case 'ArrowRight': beat++; break;
+    case 'ArrowUp': row--; break;
+    case 'ArrowDown': row++; break;
+    case 'Home': beat = 0; break;
+    case 'End': beat = level.beats - 1; break;
+    default: return;
+  }
+  event.preventDefault();
+  track.querySelector<HTMLElement>(`[data-cell="${Math.max(0, Math.min(level.beats - 1, beat))}"][data-row="${Math.max(1, Math.min(level.lampCount, row))}"]`)?.focus();
+});
 track.addEventListener('focusout', () => showPreview(null));
 track.addEventListener('pointerdown', event => {
   clearTimeout(holdTimer); heldPreviewCell = null;
@@ -634,7 +664,12 @@ window.addEventListener('keydown', event => {
   if (dialog.open || /INPUT|TEXTAREA|SELECT/.test((event.target as HTMLElement).tagName)) return;
   if (event.key === 'Escape' && screen === 'game') { event.preventDefault(); pause(!paused); return; }
   if (screen !== 'game' || paused) return;
+  if (event.ctrlKey || event.metaKey || event.altKey || event.isComposing) return;
   const key = event.key.toLowerCase();
+  if (mode === 'result' && state.status === 'fell' && !event.repeat) {
+    if (key === 'r' && checkpoint && stoneAvailable) { event.preventDefault(); startRun(true); return; }
+    if (key === 'f') { event.preventDefault(); void handleAction('repair'); return; }
+  }
   if (/^[1-5]$/.test(key) && Number(key) <= level.lampCount && !event.repeat) { event.preventDefault(); chooseLamp(Number(key)); }
   if (mode !== 'playing') return;
   if (key === 'arrowright' || key === 'd') { event.preventDefault(); held.add('right'); }
