@@ -42,7 +42,9 @@ const motifs = [
   [-1, -1, -1, -1, -1, -1, -1, -1],
 ];
 const densities = [0.78, 0.8, 0.86, 0.8, 0.86, 0.95];
-const rainLevels = [0.02, 0.02, 0.022, 0.032, 0.02, 0.016];
+// The rain stays far under the score: a steady hiss between 1 and 4 kHz sounds much louder than
+// its gain suggests, most of all on laptop and phone speakers that carry little of the bass.
+const rainLevels = [0.006, 0.006, 0.0065, 0.009, 0.006, 0.005];
 
 /** Locally synthesized sounds and a generative rain-night score; no downloads and no gameplay timing changes. */
 export function createAudio(): GameAudio {
@@ -107,10 +109,10 @@ export function createAudio(): GameAudio {
     rain.loop = true;
     const high = ctx.createBiquadFilter();
     high.type = 'highpass';
-    high.frequency.value = 1100;
+    high.frequency.value = 800;
     const low = ctx.createBiquadFilter();
     low.type = 'lowpass';
-    low.frequency.value = 6800;
+    low.frequency.value = 4200;
     rainGain = ctx.createGain();
     rainGain.gain.value = rainLevels[scene];
     rain.connect(high);
@@ -128,7 +130,7 @@ export function createAudio(): GameAudio {
     band.frequency.value = 320;
     band.Q.value = 0.6;
     const riverGain = ctx.createGain();
-    riverGain.gain.value = 0.02;
+    riverGain.gain.value = 0.01;
     river.connect(band);
     band.connect(riverGain);
     riverGain.connect(musicBus);
