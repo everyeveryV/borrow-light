@@ -6,7 +6,7 @@ import { levels, createState, step, simulate, switches, validateScore, starsFor,
 import { createRenderer } from './game/render';
 import { createAudio } from './game/audio';
 import { loadSave, persist, recordBest, escapeHtml as esc, shortAddress, type SavedRun } from './ui/storage';
-import * as chain from './chain/client';
+import * as chain from './chain/lazy';
 import deployment from './chain/deployment.json';
 import seedData from '../../shared/seeds.json';
 import solutionData from '../../shared/solutions.json';
@@ -788,5 +788,7 @@ chain.onConnectionChange(updateHeader);
 const wakeAudio = () => { void audio.unlock(); };
 for (const gesture of ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'] as const) window.addEventListener(gesture, wakeAudio, { passive: true });
 updateHeader(); renderMap(); requestAnimationFrame(frame);
+// Fetched once the first screen has settled, so the first wallet click or board lookup doesn't wait on it.
+if (chain.contractAddress) setTimeout(chain.warm, 3000);
 const night = Number(new URLSearchParams(location.search).get('night'));
 if (Number.isInteger(night) && night >= 1 && night <= levels.length) { practice = true; openLevel(night); }

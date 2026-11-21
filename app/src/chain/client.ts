@@ -1,14 +1,12 @@
 import { createPublicClient, createWalletClient, custom, http, toHex, hexToBytes, BaseError, type Address, type Hash, type EIP1193Provider } from 'viem';
 import { monadTestnet } from 'viem/chains';
 import { borrowLightAbi } from './abi';
-import deployment from './deployment.json';
+import { contractAddress, explorer } from './lazy';
 import type { SavedRun } from '../ui/storage';
 import { levels, simulate } from '../game/sim';
 
 declare global { interface Window { ethereum?: EIP1193Provider & { on?: (name: string, callback: (...args: unknown[]) => void) => void } } }
 export const publicClient = createPublicClient({ chain: monadTestnet, transport: http(import.meta.env.VITE_MONAD_RPC_URL || 'https://testnet-rpc.monad.xyz', { timeout: 12_000, retryCount: 1 }), pollingInterval: 1200 });
-export const contractAddress = (deployment.address || null) as Address | null;
-export const explorer = 'https://testnet.monadvision.com';
 export interface Light { id: string; author: string; score: number[]; borrowCount: number; seedKey?: string; label?: string }
 export interface ChainProgress { level: number; tick: number; stars: number }
 export interface TransactionUpdate { status: 'checking' | 'signing' | 'broadcast' | 'confirmed'; hash?: Hash; block?: string; elapsed?: number }
