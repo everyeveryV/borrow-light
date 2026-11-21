@@ -1,4 +1,6 @@
 import { paintScene, scenePalettes } from './scenery';
+/** The backdrop plate of each night in level order; the fourth night shares the first one. */
+export const plateFiles = ['plate.webp', 'plate-2.webp', 'plate-3.webp', 'plate.webp', 'plate-5.webp'];
 /** All coordinates in RenderLevel / RenderState are deci-pixels. Drawing uses pixels. */
 export interface RenderGap {
   a: number;
@@ -123,7 +125,6 @@ export function createRenderer(canvas: HTMLCanvasElement): {
   scenery.width = WIDTH;
   scenery.height = HEIGHT;
   const background = scenery.getContext('2d')!;
-  const plateFiles = ['plate.webp', 'plate-2.webp', 'plate-3.webp', 'plate.webp', 'plate-5.webp'];
   const plates = new Map<string, HTMLImageElement>();
   for (const file of new Set(plateFiles)) {
     const image = new Image();

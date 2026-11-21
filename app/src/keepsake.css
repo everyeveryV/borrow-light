@@ -1,0 +1,11 @@
+.keepsake{display:grid;place-items:center;margin:4px 0 12px}
+.keepsake img{display:block;width:auto;height:auto;max-width:100%;max-height:min(58vh,560px);border-radius:6px;box-shadow:0 18px 44px rgba(0,0,0,.5)}
+.keepsake-tip,.keepsake-wait{margin:0 0 14px;font-size:12px;color:var(--mist);text-align:center}
+.keepsake-wait{padding:56px 0;font-size:14px}
+.keepsake~.dialog-actions{flex-wrap:wrap;justify-content:center}
+
+/* The five-night card is collected beside the charms it sums up. */
+.charms{align-items:center}
+.map-bottom .charms .album{display:inline-flex;align-items:center;gap:5px;font-size:12px;line-height:1;padding:8px 12px;border-radius:999px;border:1px solid rgba(240,192,96,.7);background:rgba(240,192,96,.16);color:var(--lamp-hot)}
+.map-bottom .charms .album:hover{background:rgba(240,192,96,.3)}
+.map-bottom .charms .album .button-icon{width:13px;height:13px}

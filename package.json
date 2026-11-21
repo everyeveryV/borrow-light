@@ -15,6 +15,7 @@
     "deploy:contract": "node --env-file=.env contracts/scripts/deploy.mjs"
   },
   "dependencies": {
+    "qrcode-generator": "^1.4.4",
     "viem": "^2.21.53"
   },
   "devDependencies": {

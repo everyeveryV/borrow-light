@@ -1,11 +1,13 @@
 import './style.css';
 import './design.css';
 import './motion.css';
+import './keepsake.css';
 import lettering from './ui/wordmark.svg?raw';
 import { levels, createState, step, simulate, switches, validateScore, starsFor, TICK_MS } from './game/sim';
 import { createRenderer } from './game/render';
 import { createAudio } from './game/audio';
 import { loadSave, persist, recordBest, escapeHtml as esc, shortAddress, type SavedRun } from './ui/storage';
+import type { Keepsake } from './ui/card';
 import * as chain from './chain/lazy';
 import deployment from './chain/deployment.json';
 import seedData from '../../shared/seeds.json';
@@ -21,6 +23,7 @@ const icon = (name: string) => {
     restart:'M4 10a8 8 0 1 1 2 8M4 4v6h6', edit:'M4 20l4-1L20 7l-3-3L5 16z',
     replay:'M9 5L2 12l7 7V5zM20 5l-7 7 7 7V5z', next:'M5 12h14m-6-6 6 6-6 6',
     submit:'M12 16V3m-5 5 5-5 5 5M4 15v6h16v-6', borrow:'M4 8h14m-4-4 4 4-4 4M20 16H6m4-4-4 4 4 4',
+    card:'M7 3h10a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM9.5 8.5h5M9.5 12.5h5',
   };
   return paths[name] ? `<svg class="button-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[name]}"/></svg>` : '';
 };
@@ -177,7 +180,7 @@ function renderMap() {
     ['夜摊', save.marketLit ? 'on' : '', '第五夜提着灯笼，点亮夜摊'],
     ['满星', starTotal === 15 ? 'on' : '', '五夜全部三星'],
   ];
-  $('map-progress').innerHTML = lit ? `${lit === 5 ? '长街全亮' : `已点亮 ${lit} / 5 盏灯`} · ${starTotal} / 15 星<span class="charms">${charms.map(([name, tone, tip]) => `<i class="${tone}" title="${tip}">${name}</i>`).join('')}</span>` : '无需钱包，即可开始。';
+  $('map-progress').innerHTML = lit ? `${lit === 5 ? '长街全亮' : `已点亮 ${lit} / 5 盏灯`} · ${starTotal} / 15 星<span class="charms">${charms.map(([name, tone, tip]) => `<i class="${tone}" title="${tip}">${name}</i>`).join('')}${lit === 5 ? `<button class="album" data-action="card-all">${icon('card')}五夜纪念卡</button>` : ''}</span>` : '无需钱包，即可开始。';
   $('continue-button').textContent = lit ? lit === 5 ? '再走一段雨夜' : `继续 · ${levels[next - 1].name}` : '点亮第一盏灯';
   $('practice-button').textContent = practice ? '返回逐关解锁' : '自由练习';
   $('recent-button').hidden = !save.recent;
@@ -322,7 +325,7 @@ function renderControls() {
 function renderResult() {
   const stars = starsFor(level, state.finishTick!);
   const chase = !isDemo && stars > 0 && stars < 3 ? `　<span class="pill">再快 ${((state.finishTick! - (stars === 2 ? level.par3 : level.par2)) / 20).toFixed(2)} 秒就是${stars === 2 ? '三' : '两'}星</span>` : '';
-  $('result').innerHTML = `<div><div class="result-details"><span class="stars" aria-label="${stars}星">${[1, 2, 3].map(n => `<i class="${n <= stars ? 'on' : ''}" style="--i:${n}">${n <= stars ? '★' : '☆'}</i>`).join('')}</span><h3>${isDemo ? '走法示范' : '这一夜，平安抵达。'}</h3></div><p>${(state.finishTick! / 20).toFixed(2)} 秒 · ${state.finishTick} 帧${resultNote && !isDemo ? `　<span class="pill${resultNote.startsWith('比') ? '' : ' record'}">${resultNote}</span>` : ''}${chase}${state.hasItem ? `　<span class="pill">${level.itemRequired ? (stallLit ? '夜摊亮了 · 提灯归来' : '提灯归来') : level.id === 2 ? '纸船已挂上第二盏灯' : '拾舟'}</span>` : ''}${level.borrowable && !isDemo ? '　借来的光，照完了一段路。' : ''}</p><div id="tx-status" class="tx-status">${txView || (isDemo ? '示范不计入成绩，请亲自走一遍。' : '本地成绩已保存。' + (!chain.contractAddress ? '合约部署后可继续上链。' : ''))}</div></div><div class="transaction-tools">${!isDemo ? button('把这束光写上链', 'submit', false, txBusy) : ''}${level.id < 5 && !isDemo ? button('去下一夜', 'next', true) : button('回到长街', 'map', true)}</div>`;
+  $('result').innerHTML = `<div><div class="result-details"><span class="stars" aria-label="${stars}星">${[1, 2, 3].map(n => `<i class="${n <= stars ? 'on' : ''}" style="--i:${n}">${n <= stars ? '★' : '☆'}</i>`).join('')}</span><h3>${isDemo ? '走法示范' : '这一夜，平安抵达。'}</h3></div><p>${(state.finishTick! / 20).toFixed(2)} 秒 · ${state.finishTick} 帧${resultNote && !isDemo ? `　<span class="pill${resultNote.startsWith('比') ? '' : ' record'}">${resultNote}</span>` : ''}${chase}${state.hasItem ? `　<span class="pill">${level.itemRequired ? (stallLit ? '夜摊亮了 · 提灯归来' : '提灯归来') : level.id === 2 ? '纸船已挂上第二盏灯' : '拾舟'}</span>` : ''}${level.borrowable && !isDemo ? '　借来的光，照完了一段路。' : ''}</p><div id="tx-status" class="tx-status">${txView || (isDemo ? '示范不计入成绩，请亲自走一遍。' : '本地成绩已保存。' + (!chain.contractAddress ? '合约部署后可继续上链。' : ''))}</div></div><div class="transaction-tools">${!isDemo ? button('把这束光写上链', 'submit', false, txBusy) + button('留一张纪念卡', 'card') : ''}${level.id < 5 && !isDemo ? button('去下一夜', 'next', true) : button('回到长街', 'map', true)}</div>`;
 }
 function renderAll() { renderTracks(); renderControls(); updateHeader(); }
 function updateCrossing() {
@@ -603,6 +606,54 @@ async function connectWallet() {
   try { if (chain.account) { openDialog('掌灯人的钱包', `<p>已连接 ${esc(shortAddress(chain.account))}，网络为 Monad 测试网。</p><p>连接钱包不会扣费；上链前需要你在钱包里确认。</p><div class="dialog-actions">${button('断开连接', 'disconnect')}${button('返回游戏', 'close-dialog', true)}</div>`); return; } await chain.connect(); await syncBest(); toast('钱包连好了。先过桥，再把光留下。'); }
   catch (error) { toast(chain.friendlyError(error)); }
 }
+let keepsake: Keepsake | null = null;
+async function openCard(journey: boolean) {
+  if (journey ? levels.some(l => !save.progress[l.id]) : isDemo || rehearsal || mode !== 'result' || state.status !== 'win') return;
+  keepsake = null;
+  openDialog(journey ? '五夜纪念卡' : '通关纪念卡', '<p class="keepsake-wait" role="status">正在把这段雨夜印成纪念卡…</p>');
+  const showing = () => dialog.open && !!$('dialog-title').textContent?.endsWith('纪念卡');
+  try {
+    // The contract is asked while the card module loads; a slow RPC must not hold the card back.
+    const onChain: Promise<chain.ChainProgress[]> = journey && chain.account && chain.contractAddress
+      ? Promise.race([chain.getBest().catch(() => []), new Promise<chain.ChainProgress[]>(resolve => setTimeout(resolve, 4000, []))])
+      : Promise.resolve([]);
+    const cards = await import('./ui/card');
+    let made: Keepsake;
+    if (journey) {
+      const boats = levels.filter(l => l.hasItem && !l.itemRequired);
+      const found = boats.filter(l => save.progress[l.id]?.hasItem).length;
+      const best = await onChain;
+      made = await cards.journeyCard({
+        nights: levels.map(l => {
+          const { tick, stars } = save.progress[l.id];
+          return { name: l.name, tick, stars, verified: best.some(p => p.level === l.id && p.tick === tick) };
+        }),
+        marks: [...(found ? [`纸船 ${found} / ${boats.length}`] : []), ...(save.marketLit ? ['夜摊已点亮'] : [])],
+        account: chain.account,
+      });
+    } else {
+      const run = save.recent;
+      made = await cards.nightCard({
+        level: level.id, name: level.name, tick: state.finishTick!, stars: starsFor(level, state.finishTick!),
+        marks: [...(level.borrowable ? ['借光同行'] : []), ...(state.hasItem ? [level.itemRequired ? (stallLit ? '夜摊亮了 · 提灯归来' : '提灯归来') : '拾得纸船'] : [])],
+        // Only the crossing that was actually submitted may carry its transaction.
+        hash: run && run.level === level.id && run.finishTick === state.finishTick ? run.submittedHash : undefined,
+        account: chain.account,
+      });
+    }
+    if (!showing()) return;
+    keepsake = made;
+    const canShare = typeof navigator.canShare === 'function' && navigator.canShare({ files: [made.file] });
+    const touch = !matchMedia('(pointer:fine)').matches;
+    // Touch screens already offer copying on a long press of the picture; there the system share sheet leads instead.
+    const canCopy = !touch && typeof ClipboardItem === 'function' && typeof navigator.clipboard?.write === 'function';
+    const lead = touch && canShare;
+    $('dialog-body').innerHTML = `<figure class="keepsake"><img src="${made.preview}" alt="${esc(made.alt)}" width="1080" height="1440"></figure><p class="keepsake-tip">手机上长按图片可以保存或转发；发到 X 时记得把这张图一起贴上。</p><div class="dialog-actions">${lead ? button('分享到…', 'card-share', true) : ''}${button('保存图片', 'card-save', !lead)}${canCopy ? button('复制图片', 'card-image') : ''}${canShare && !lead ? button('分享到…', 'card-share') : ''}${button('发到 X', 'card-x')}${button('复制文案', 'card-copy')}</div>`;
+  } catch {
+    if (showing()) closeDialog();
+    toast('纪念卡暂时没印出来，请稍后再试。');
+  }
+}
 async function handleAction(action: string) {
   switch (action) {
     case 'map': goMap(); break;
@@ -680,6 +731,35 @@ async function handleAction(action: string) {
     case 'connect': await connectWallet(); break;
     case 'disconnect': chain.disconnect(); closeDialog(); break;
     case 'submit': await submitRun(); break;
+    case 'card': await openCard(false); break;
+    case 'card-all': await openCard(true); break;
+    case 'card-save': {
+      if (!keepsake) break;
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(keepsake.file); link.download = keepsake.file.name; link.click();
+      setTimeout(() => URL.revokeObjectURL(link.href), 10_000);
+      toast('已开始保存；没有反应的话，长按图片也能保存。');
+      break;
+    }
+    case 'card-image': {
+      if (!keepsake) break;
+      try { await keepsake.copy(); toast('图片已复制，到推文或聊天窗口里粘贴就行。'); }
+      catch { toast('这个浏览器不让直接复制图片，先保存图片再发吧。'); }
+      break;
+    }
+    case 'card-share': {
+      if (!keepsake) break;
+      try { await navigator.share({ files: [keepsake.file], text: keepsake.caption }); }
+      catch (error) { if ((error as Error).name !== 'AbortError') toast('没能唤起系统分享，可以先保存图片再发。'); }
+      break;
+    }
+    case 'card-x': if (keepsake) window.open(keepsake.post, '_blank', 'noopener'); break;
+    case 'card-copy': {
+      if (!keepsake) break;
+      try { await navigator.clipboard.writeText(keepsake.caption); toast('文案和链接已复制。'); }
+      catch { toast('复制没有成功，可以长按图片直接转发。'); }
+      break;
+    }
     case 'lend': {
       if (!chain.contractAddress) { toast('合约尚未部署，灯谱已经保存在本机。'); writeScore(); break; }
       if (txBusy) break; txBusy = true; renderAll();
