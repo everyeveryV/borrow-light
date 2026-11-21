@@ -42,9 +42,9 @@ const motifs = [
   [-1, -1, -1, -1, -1, -1, -1, -1],
 ];
 const densities = [0.78, 0.8, 0.86, 0.8, 0.86, 0.95];
-// The rain stays far under the score: a steady hiss between 1 and 4 kHz sounds much louder than
-// its gain suggests, most of all on laptop and phone speakers that carry little of the bass.
-const rainLevels = [0.006, 0.006, 0.0065, 0.009, 0.006, 0.005];
+// The rain is heard as single drops off the eaves, never as a bed of noise: a steady hiss reads as
+// static on small speakers however quiet it is. Chance of a drop on each step, per scene.
+const dripChance = [0.36, 0.36, 0.4, 0.55, 0.36, 0.28];
 
 /** Locally synthesized sounds and a generative rain-night score; no downloads and no gameplay timing changes. */
 export function createAudio(): GameAudio {
@@ -55,7 +55,6 @@ export function createAudio(): GameAudio {
   let master: GainNode | undefined;
   let musicBus: GainNode | undefined;
   let wet: GainNode | undefined;
-  let rainGain: GainNode | undefined;
   let noiseBuffer: AudioBuffer | undefined;
   let timer: ReturnType<typeof setInterval> | undefined;
   let lastFootstep = -1;
@@ -82,7 +81,7 @@ export function createAudio(): GameAudio {
     master.gain.value = enabled ? 0.7 : 0;
     master.connect(ctx.destination);
     musicBus = ctx.createGain();
-    // The rain and the score rise slowly instead of starting at full level.
+    // The score rises slowly instead of starting at full level.
     musicBus.gain.value = 0;
     musicBus.gain.setTargetAtTime(music ? 1 : 0, ctx.currentTime + 0.05, 0.9);
     musicBus.connect(master);
@@ -103,38 +102,6 @@ export function createAudio(): GameAudio {
     noiseBuffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 2), ctx.sampleRate);
     const samples = noiseBuffer.getChannelData(0);
     for (let i = 0; i < samples.length; i++) samples[i] = Math.random() * 2 - 1;
-
-    const rain = ctx.createBufferSource();
-    rain.buffer = noiseBuffer;
-    rain.loop = true;
-    const high = ctx.createBiquadFilter();
-    high.type = 'highpass';
-    high.frequency.value = 800;
-    const low = ctx.createBiquadFilter();
-    low.type = 'lowpass';
-    low.frequency.value = 4200;
-    rainGain = ctx.createGain();
-    rainGain.gain.value = rainLevels[scene];
-    rain.connect(high);
-    high.connect(low);
-    low.connect(rainGain);
-    rainGain.connect(musicBus);
-    rain.start();
-
-    const river = ctx.createBufferSource();
-    river.buffer = noiseBuffer;
-    river.loop = true;
-    river.playbackRate.value = 0.6;
-    const band = ctx.createBiquadFilter();
-    band.type = 'bandpass';
-    band.frequency.value = 320;
-    band.Q.value = 0.6;
-    const riverGain = ctx.createGain();
-    riverGain.gain.value = 0.01;
-    river.connect(band);
-    band.connect(riverGain);
-    riverGain.connect(musicBus);
-    river.start(0, 0.7);
   }
 
   async function unlock(): Promise<void> {
@@ -273,6 +240,28 @@ export function createAudio(): GameAudio {
     voice.onended = () => { voice.disconnect(); envelope.disconnect(); };
   }
 
+  /** One drop off the eaves: a short sine that bends upward and is gone, far under the score. */
+  function drip(at: number, level: number): void {
+    const ctx = context;
+    if (!ctx || !musicBus || !wet) return;
+    const drop = ctx.createOscillator();
+    const envelope = ctx.createGain();
+    const pitch = 700 + Math.random() * 900;
+    const length = 0.05 + Math.random() * 0.04;
+    drop.type = 'sine';
+    drop.frequency.setValueAtTime(pitch, at);
+    drop.frequency.exponentialRampToValueAtTime(pitch * (1.35 + Math.random() * 0.3), at + length);
+    envelope.gain.setValueAtTime(0.0001, at);
+    envelope.gain.exponentialRampToValueAtTime((0.004 + Math.random() * 0.004) * level, at + 0.004);
+    envelope.gain.exponentialRampToValueAtTime(0.0001, at + length);
+    drop.connect(envelope);
+    envelope.connect(musicBus);
+    envelope.connect(wet);
+    drop.start(at);
+    drop.stop(at + length + 0.02);
+    drop.onended = () => { drop.disconnect(); envelope.disconnect(); };
+  }
+
   function playStep(index: number, at: number): void {
     const position = index % 8;
     const bar = Math.floor(index / 8);
@@ -295,6 +284,12 @@ export function createAudio(): GameAudio {
     }
     // The night market keeps a light wooden pulse under the melody.
     if (scene === 5) low(position % 4 === 0 ? 880 : 1320, at, position % 2 === 0 ? 0.012 : 0.006, 0.07, 0.7);
+    // Drops fall off the beat, now and then two close together.
+    if (Math.random() < dripChance[scene]) {
+      const when = at + Math.random() * stepSeconds;
+      drip(when, 1);
+      if (Math.random() < 0.25) drip(when + 0.07 + Math.random() * 0.09, 0.6);
+    }
   }
 
   function schedule(): void {
@@ -331,7 +326,6 @@ export function createAudio(): GameAudio {
     setScene(value, beatSeconds = 0.5) {
       scene = Math.max(0, Math.min(5, Math.floor(value) || 0));
       stepSeconds = Math.max(0.3, Math.min(0.7, beatSeconds));
-      if (context && rainGain) rainGain.gain.setTargetAtTime(rainLevels[scene], context.currentTime, 0.8);
     },
     unlock,
     tick(lamp = 1) {
@@ -410,7 +404,6 @@ export function createAudio(): GameAudio {
       master = undefined;
       musicBus = undefined;
       wet = undefined;
-      rainGain = undefined;
       noiseBuffer = undefined;
     },
   };
