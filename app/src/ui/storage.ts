@@ -2,9 +2,11 @@ export interface Progress { tick: number; stars: number; hasItem: boolean }
 export interface SavedRun {
   level: number; score: number[]; inputs: number[]; borrowed: number[];
   borrowedId: string; seedKey?: string; finishTick: number; hasItem: boolean;
+  stallLit?: boolean;
   submittedHash?: string;
 }
 export interface SaveData {
+  marketLit?: boolean;
   version: 2; progress: Record<number, Progress>; scores: Record<number, number[]>;
   recent: SavedRun | null; sound: boolean;
 }
@@ -30,7 +32,7 @@ export function loadSave(): SaveData {
       && Array.isArray(candidate.borrowed) && candidate.borrowed.length <= 32 && candidate.borrowed.every(n => Number.isInteger(n) && n >= 1 && n <= 5)
       && /^\d+$/.test(String(candidate.borrowedId)) && Number.isInteger(candidate.finishTick) && candidate.finishTick > 0
       ? candidate : null;
-    return { ...empty, progress, scores, recent, sound: parsed.sound === true };
+    return { ...empty, marketLit: parsed.marketLit === true, progress, scores, recent, sound: parsed.sound === true };
   } catch { return empty; }
 }
 export function persist(data: SaveData) {

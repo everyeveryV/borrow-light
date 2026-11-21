@@ -44,6 +44,7 @@ export interface RenderState {
 }
 
 export interface RenderView {
+  stallLit?: boolean;
   level: RenderLevel;
   state: RenderState;
   score: readonly number[] | Uint8Array;
@@ -415,6 +416,14 @@ export function createRenderer(canvas: HTMLCanvasElement): {
         WIDTH - 145, 91, '#c5eeea', 11);
     }
 
+    if (level.id === 5) {
+      const x = 865;
+      ctx.fillStyle = '#514338'; ctx.fillRect(x - 16, GROUND - 38, 3, 38); ctx.fillRect(x + 13, GROUND - 38, 3, 38);
+      poly(ctx, [[x-22,GROUND-37],[x-11,GROUND-47],[x+13,GROUND-47],[x+22,GROUND-37]], '#8b5143');
+      ctx.fillStyle = '#84674c'; ctx.fillRect(x-19, GROUND-16, 38, 4);
+      ellipse(ctx,x,GROUND-29,5,7,view.stallLit ? '#ffe6a1' : '#544e47');
+      label(ctx, view.stallLit ? '夜摊已亮' : '夜摊 · E 点灯', x, GROUND-53, view.stallLit ? GOLD : '#dbc9ae', 11);
+    }
     const door = level.bellX / 10 - 6;
     const locked = level.itemRequired && !state.hasItem;
     poly(ctx, [[door - 17, GROUND - 3], [door - 17, 278], [door - 9, 266],
