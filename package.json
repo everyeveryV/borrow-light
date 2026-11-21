@@ -1,0 +1,29 @@
+{
+  "name": "borrow-light",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test:sim": "tsx --test tests/sim.test.ts",
+    "vectors": "tsx scripts/generate-vectors.ts",
+    "compile": "node contracts/scripts/compile.mjs",
+    "test:contracts": "node contracts/scripts/test.mjs",
+    "test": "npm run test:sim && npm run test:contracts",
+    "deploy:contract": "node --env-file=.env contracts/scripts/deploy.mjs"
+  },
+  "dependencies": {
+    "viem": "^2.21.53"
+  },
+  "devDependencies": {
+    "@openzeppelin/contracts": "5.1.0",
+    "@types/node": "^22.10.0",
+    "hardhat": "2.22.17",
+    "solc": "0.8.28",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.5"
+  }
+}

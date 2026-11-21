@@ -1,0 +1,72 @@
+{
+  "network": "Hardhat local EVM (Ethereum Cancun gas schedule)",
+  "chainId": 31337,
+  "disclaimer": "These are NOT Monad testnet measurements. Monad cold storage/account costs differ. Estimate on Monad before submitting.",
+  "compiler": "0.8.28+commit.7893614a.Emscripten.clang",
+  "generatedAt": "2026-11-21T06:55:00.991Z",
+  "sharedVectors": 25,
+  "assertions": 62,
+  "runs": [
+    {
+      "name": "level-1-reference-win",
+      "level": 1,
+      "finishTick": 117,
+      "gasUsed": 264361
+    },
+    {
+      "name": "level-1-optional-paperboat",
+      "level": 1,
+      "finishTick": 146,
+      "gasUsed": 215017
+    },
+    {
+      "name": "level-2-reference-win",
+      "level": 2,
+      "finishTick": 122,
+      "gasUsed": 291660
+    },
+    {
+      "name": "level-3-reference-win",
+      "level": 3,
+      "finishTick": 182,
+      "gasUsed": 341538
+    },
+    {
+      "name": "level-3-optional-paperboat",
+      "level": 3,
+      "finishTick": 211,
+      "gasUsed": 294873
+    },
+    {
+      "name": "level-4-reference-win",
+      "level": 4,
+      "finishTick": 130,
+      "gasUsed": 391422
+    },
+    {
+      "name": "level-5-reference-win",
+      "level": 5,
+      "finishTick": 181,
+      "gasUsed": 411151
+    },
+    {
+      "name": "level-4-S2-win",
+      "level": 4,
+      "finishTick": 130,
+      "gasUsed": 299475
+    },
+    {
+      "name": "level-4-S3-win",
+      "level": 4,
+      "finishTick": 130,
+      "gasUsed": 301521
+    },
+    {
+      "name": "level-1-win-on-final-tick",
+      "level": 1,
+      "finishTick": 160,
+      "gasUsed": 229466
+    }
+  ],
+  "maximum": 411151
+}

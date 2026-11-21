@@ -1,0 +1,22 @@
+{
+  "chainId": 10143,
+  "address": "0xfc1d55e57774bec10dd4dd4a13798d66e98be7a1",
+  "rpcUrl": "https://testnet-rpc.monad.xyz",
+  "explorerUrl": "https://testnet.monadvision.com",
+  "deployedAt": "2026-11-21T06:44:56.692Z",
+  "deploymentHash": "0xb798fb7d8728d901743aef734da97ed7e183533511f788aa5bd8062028317303",
+  "deploymentBlock": "81510552",
+  "seedIds": [
+    "1",
+    "2",
+    "3"
+  ],
+  "configuredLevels": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "ready": true
+}

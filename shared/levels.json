@@ -1,0 +1,60 @@
+[
+  {
+    "id": 1, "name": "雨后骑楼", "subtitle": "为八秒后的自己，照一段路。",
+    "beatTicks": 10, "beats": 16, "startX": 1250, "bellX": 9640, "minX": 720, "maxX": 10450, "speed": 72,
+    "maxSwitches": 15, "lampCount": 2, "borrowable": false, "hasItem": true, "itemRequired": false,
+    "itemX": 5310, "itemRadius": 400, "itemTicks": 28, "par2": 130, "par3": 118,
+    "gaps": [
+      {"a": 2410, "b": 4260, "kind": "lamp", "lamp": 1, "mask": 0},
+      {"a": 6400, "b": 8420, "kind": "lamp", "lamp": 2, "mask": 0}
+    ]
+  },
+  {
+    "id": 2, "name": "三拱桥", "subtitle": "灯油只够换两次。",
+    "beatTicks": 10, "beats": 14, "startX": 1000, "bellX": 9740, "minX": 720, "maxX": 10450, "speed": 72,
+    "maxSwitches": 2, "lampCount": 3, "borrowable": false, "hasItem": false, "itemRequired": false,
+    "itemX": 0, "itemRadius": 0, "itemTicks": 0, "par2": 130, "par3": 122,
+    "gaps": [
+      {"a": 2000, "b": 3300, "kind": "lamp", "lamp": 1, "mask": 0},
+      {"a": 4500, "b": 6000, "kind": "lamp", "lamp": 2, "mask": 0},
+      {"a": 7200, "b": 8800, "kind": "lamp", "lamp": 3, "mask": 0}
+    ]
+  },
+  {
+    "id": 3, "name": "潮汐渡口", "subtitle": "潮水退去之前，先在石台上等一等。",
+    "beatTicks": 10, "beats": 22, "startX": 1000, "bellX": 9740, "minX": 720, "maxX": 10450, "speed": 72,
+    "maxSwitches": 1, "lampCount": 2, "borrowable": false, "hasItem": true, "itemRequired": false,
+    "itemX": 6800, "itemRadius": 400, "itemTicks": 28, "par2": 200, "par3": 186,
+    "gaps": [
+      {"a": 2000, "b": 3400, "kind": "lamp", "lamp": 1, "mask": 0},
+      {"a": 4600, "b": 6200, "kind": "tide", "lamp": 0, "mask": 4192319},
+      {"a": 7400, "b": 8800, "kind": "lamp", "lamp": 2, "mask": 0}
+    ]
+  },
+  {
+    "id": 4, "name": "借光", "subtitle": "灯油不够，向陌生人借一盏。",
+    "beatTicks": 10, "beats": 20, "startX": 800, "bellX": 10100, "minX": 720, "maxX": 10450, "speed": 72,
+    "maxSwitches": 2, "lampCount": 5, "borrowable": true, "hasItem": false, "itemRequired": false,
+    "itemX": 0, "itemRadius": 0, "itemTicks": 0, "par2": 140, "par3": 131,
+    "gaps": [
+      {"a": 1500, "b": 2500, "kind": "lamp", "lamp": 1, "mask": 0},
+      {"a": 3300, "b": 4300, "kind": "lamp", "lamp": 2, "mask": 0},
+      {"a": 5100, "b": 6100, "kind": "lamp", "lamp": 3, "mask": 0},
+      {"a": 6900, "b": 7900, "kind": "lamp", "lamp": 4, "mask": 0},
+      {"a": 8700, "b": 9600, "kind": "lamp", "lamp": 5, "mask": 0}
+    ]
+  },
+  {
+    "id": 5, "name": "夜市长街", "subtitle": "这里每一拍，都是 Monad 的一个区块（0.4 秒）。",
+    "beatTicks": 8, "beats": 25, "startX": 800, "bellX": 10100, "minX": 720, "maxX": 10450, "speed": 72,
+    "maxSwitches": 3, "lampCount": 4, "borrowable": false, "hasItem": true, "itemRequired": true,
+    "itemX": 6800, "itemRadius": 400, "itemTicks": 16, "par2": 188, "par3": 181,
+    "gaps": [
+      {"a": 1500, "b": 2600, "kind": "lamp", "lamp": 1, "mask": 0},
+      {"a": 3400, "b": 4500, "kind": "lamp", "lamp": 2, "mask": 0},
+      {"a": 5300, "b": 6400, "kind": "tide", "lamp": 0, "mask": 18641351},
+      {"a": 7200, "b": 8300, "kind": "lamp", "lamp": 3, "mask": 0},
+      {"a": 9100, "b": 9800, "kind": "lamp", "lamp": 4, "mask": 0}
+    ]
+  }
+]
