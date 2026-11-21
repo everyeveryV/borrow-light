@@ -109,11 +109,11 @@ npm run build
 
 前端钱包入口支持注入式钱包、测试网切换/添加、链上最佳合并、灯谱池读取、前十名灯榜和通关提交。链上不可用时仍可离线游玩；通关记录保留，可稍后重试。内置借光在提交时按灯谱内容寻找对应的已部署种子，找不到则明确要求重新选取链上灯谱。
 
-仍需完成：浏览器钱包签名与拒签测试、实际通关提交的 gas 和确认耗时记录、两个浏览器互借灯谱验收。之后再生成公开演示链接并提交 MOJO。
+仍需完成：浏览器钱包签名与拒签测试、实际通关提交的 gas 和确认耗时记录、两个浏览器互借灯谱验收。公开试玩链接已上线（见页首），项目已提交 MOJO。
 
 ## 当前边界
 
-- 已实现 P0 的本地玩法与合约逻辑，并完成真实测试网部署。网页可通过仓库中的 GitHub Pages 工作流发布。
+- 已实现 P0 的本地玩法与合约逻辑，并完成真实测试网部署。网页由仓库中的 GitHub Pages 工作流发布，推送到 `main` 后自动更新。
 - P1 已实现借光作者幽灵、直接发布灯谱入口和合约接口。**免签灯童前端、实时链上动态条尚未启用。**
 - 合约预留了灯童授权与打赏接口，但当前没有对应前端开关。灯童需要主钱包提出授权后，再由灯童调用 `acceptOperator` 同意，避免陌生人直接劫持地址归属。
 - GitHub Pages 发布与 MOJO 参赛提交是独立流程。
@@ -134,7 +134,7 @@ docs/screenshots/  实际浏览器截图
 prototype.html     原始原型完整备份
 ```
 
-采用 Vite + TypeScript + Canvas + viem；合约使用 Solidity 0.8.28、Cancun、OpenZeppelin Ownable/ReentrancyGuard，本地 Hardhat 验证。没有后端、代币或 NFT。
+采用 Vite + TypeScript + Canvas + viem；合约使用 Solidity 0.8.28、Cancun、OpenZeppelin Ownable/ReentrancyGuard，本地 Hardhat 验证。没有后端、代币或 NFT。钱包与合约相关代码（viem、ABI）拆成独立分包，首次用到链上功能时才加载；不连钱包的玩家首屏只下载游戏本体。
 
 ![第四关双轨借光](docs/screenshots/04-borrowed-light.jpg)
 
