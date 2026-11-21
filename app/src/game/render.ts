@@ -117,7 +117,14 @@ export function createRenderer(canvas: HTMLCanvasElement): {
   scenery.width = WIDTH;
   scenery.height = HEIGHT;
   const background = scenery.getContext('2d')!;
-  const plate = new Image();
+  const plateFiles = ['plate.webp', 'plate-2.webp', 'plate-3.webp', 'plate.webp', 'plate-5.webp'];
+  const plates = new Map<string, HTMLImageElement>();
+  for (const file of new Set(plateFiles)) {
+    const image = new Image();
+    image.onload = () => { dirty = true; };
+    image.src = `${import.meta.env.BASE_URL}assets/${file}`;
+    plates.set(file, image);
+  }
   let dirty = true;
   let lastLevel: RenderLevel | undefined;
   let lastStatus = '';
@@ -127,9 +134,6 @@ export function createRenderer(canvas: HTMLCanvasElement): {
   let face = 1;
   let disposed = false;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  plate.onload = () => { dirty = true; };
-  plate.src = `${import.meta.env.BASE_URL}assets/plate.webp`;
-
   function bank(c: CanvasRenderingContext2D, a: number, b: number): void {
     if (b <= a) return;
     poly(c, [[a, GROUND], [b, GROUND], [b - 3, GROUND + 55], [a, GROUND + 55]], '#192d38');
@@ -167,13 +171,16 @@ export function createRenderer(canvas: HTMLCanvasElement): {
     sky.addColorStop(1, '#263f4c');
     c.fillStyle = sky;
     c.fillRect(0, 0, WIDTH, HEIGHT);
+    const plate = plates.get(plateFiles[level.id - 1])!;
     if (plate.complete && plate.naturalWidth) {
       const scale = Math.max(WIDTH / plate.width, HEIGHT / plate.height);
+      c.save();
+      if (level.id === 4) { c.translate(WIDTH, 0); c.scale(-1, 1); }
       c.drawImage(plate, (WIDTH - plate.width * scale) / 2,
         (HEIGHT - plate.height * scale) * 0.48, plate.width * scale, plate.height * scale);
-    }
-    if (level.id !== 1) paintScene(c, level.id);
-    c.fillStyle = level.id === 3 ? '#12344763' : level.id === 5 ? '#3625363d' : '#11273430';
+      c.restore();
+    } else if (level.id !== 1) paintScene(c, level.id);
+    c.fillStyle = ['#0d212c38', '#1a1f3a30', '#0f2a3a40', '#1a1d4a52', '#2a1a3030'][level.id - 1];
     c.fillRect(0, 0, WIDTH, HEIGHT);
     const water = c.createLinearGradient(0, GROUND, 0, HEIGHT);
     water.addColorStop(0, scenePalettes[level.id - 1][2] + '96');
@@ -193,13 +200,6 @@ export function createRenderer(canvas: HTMLCanvasElement): {
       [door, 255], [door + 15, 262], [door + 26, 277], [door + 26, GROUND - 3]], '#644d37');
     stroke(c, [[door + 27, 269], [level.bellX / 10 + 26, 269],
       [level.bellX / 10 + 26, 276]], '#b59b6c', 3);
-    if (level.hasItem && !level.itemRequired) {
-      const x = level.itemX / 10;
-      stroke(c, [[x - 34, GROUND - 2], [x - 34, GROUND - 61], [x + 24, GROUND - 61]], '#493b37', 4);
-      poly(c, [[x - 48, GROUND - 61], [x - 24, GROUND - 76],
-        [x + 19, GROUND - 76], [x + 37, GROUND - 61]], '#445759');
-      stroke(c, [[x - 48, GROUND - 61], [x + 37, GROUND - 61]], '#b29b77', 2);
-    }
     dirty = false;
     lastLevel = level;
   }
@@ -419,16 +419,6 @@ export function createRenderer(canvas: HTMLCanvasElement): {
     poly(ctx, [[-1, 29], [3, 30], [2, 39], [-2, 38]], '#d4634c');
     ctx.restore();
 
-    if (level.id === 5) {
-      const wire: Point[] = [];
-      for (let x = 250; x <= 870; x += 10) wire.push([x, 196 + Math.sin((x - 250) / 620 * Math.PI) * 22]);
-      stroke(ctx, wire, '#a5846688');
-      for (let i = 0; i < 8; i++) {
-        const x = 265 + i * 82;
-        lantern(x, 215 + Math.sin((x - 250) / 620 * Math.PI) * 22, 0.58,
-          i % 3 === 0 ? '#c68470' : '#edb569', Math.sin(visualTime + i) * 0.045);
-      }
-    }
     if (level.hasItem && !state.hasItem) {
       const x = level.itemX / 10;
       if (level.itemRequired) {
@@ -496,6 +486,6 @@ export function createRenderer(canvas: HTMLCanvasElement): {
 
   return {
     draw,
-    destroy() { disposed = true; plate.onload = null; },
+    destroy() { disposed = true; for (const image of plates.values()) image.onload = null; },
   };
 }
