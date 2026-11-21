@@ -55,6 +55,8 @@ export interface RenderView {
   time: number;
   alpha: number;
   previousX?: number;
+  /** Where the best earlier crossing stood at this moment, in the units of state.x. */
+  echoX?: number;
   selectedLamp: number;
   preview?: { beat: number; lamp: number } | null;
   borrowArrival?: number;
@@ -139,6 +141,8 @@ export function createRenderer(canvas: HTMLCanvasElement): {
   let disposed = false;
   let hadItem = false;
   let pickupTime = -10;
+  let echoPx = 0;
+  let echoFace = 1;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   function bank(c: CanvasRenderingContext2D, a: number, b: number): void {
     if (b <= a) return;
@@ -211,12 +215,12 @@ export function createRenderer(canvas: HTMLCanvasElement): {
   }
 
   function character(x: number, y: number, scale: number, ghost: boolean,
-    step: number, facing = 1): void {
+    step: number, facing = 1, fade = 0.8): void {
     const c = ctx;
     c.save();
     c.translate(x, y);
     c.scale(scale * facing, scale);
-    if (ghost) c.globalAlpha = 0.8;
+    if (ghost) c.globalAlpha = fade;
     const coat = ghost ? '#9fc9d4' : '#f5be5e';
     const shadow = ghost ? '#5c8594' : '#b17c3d';
     const ink = ghost ? '#64818e' : '#2c3236';
@@ -530,6 +534,16 @@ export function createRenderer(canvas: HTMLCanvasElement): {
     if (state.status === 'win' && !reducedMotion) y -= Math.abs(Math.sin(eventTime * 7)) * 11 * Math.exp(-eventTime * 1.3);
     if (state.hasItem && !hadItem && state.tick > 0) pickupTime = visualTime;
     hadItem = state.hasItem;
+    if (view.echoX !== undefined && view.mode === 'playing') {
+      // The best earlier crossing walks the same night again, a pace of pale light beside the player.
+      const ex = view.echoX / 10;
+      const strolling = Math.abs(ex - echoPx) > 0.01;
+      if (strolling) echoFace = ex > echoPx ? 1 : -1;
+      echoPx = ex;
+      ellipse(ctx, ex, GROUND - 1, 15, 3.5, 'rgba(159,201,212,0.2)');
+      character(ex, GROUND - 3, 1.1, true, strolling ? visualTime * 10 : 0, echoFace, 0.42);
+      if (Math.abs(ex - x) > 30) label(ctx, '回声', ex, GROUND - 60, '#bfe0ea', 10);
+    }
     if (walking && !reducedMotion) {
       // Motes of lamplight scatter behind each step.
       for (let i = 0; i < 6; i++) {

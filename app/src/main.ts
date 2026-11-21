@@ -87,6 +87,8 @@ let poolBusy = false;
 let toastTimer: ReturnType<typeof setTimeout>;
 let freshTimer: ReturnType<typeof setTimeout>;
 let resultNote = '';
+let trail: number[] = [];
+let echoTold = 0;
 const held = new Set<string>();
 let interactionQueued = false;
 const audio = createAudio();
@@ -163,7 +165,7 @@ function renderMap() {
     const p = save.progress[l.id]; const open = unlocked(l.id);
     const t = 0.1 + i * 0.2; const sag = (2 * (1 - t) * t * 140 + 6 * ((1 - t) ** 2 + t * t)) / 120;
     const state = p ? 'lit' : open ? 'open' : 'dark';
-    return `<button class="lamp-stop ${state} ${l.id === next ? 'current' : ''}" style="--x:${t * 100}%;--sag:${sag};--drop:${drops[i]}px;--i:${i}" data-level="${l.id}" ${!open ? 'disabled' : ''} aria-label="第${numerals[l.id - 1]}夜 ${l.name}${!open ? '，尚未解锁' : p ? `，${p.stars}星` : ''}"><span class="cord" aria-hidden="true"></span><span class="lantern" aria-hidden="true">${numerals[l.id - 1]}</span>${l.id === 2 && p?.hasItem ? '<svg class="boat-charm" viewBox="0 0 32 24" aria-label="纸船"><path d="M16 0v8" stroke="#bea271"/><path d="M4 13l10 2 8-8v7l7-1-7 8H11z" fill="#ead8ab"/><path d="m4 13 13 5 12-5" fill="none" stroke="#947b58"/></svg>' : ''}<strong>${l.name}</strong><span class="mechanic">${l.id === 5 && save.marketLit ? '夜摊已点亮' : l.id === 2 && p?.hasItem ? '已带回纸船' : open ? mechanics[l.id - 1] : '尚未点亮'}</span><span class="pips" aria-hidden="true">${[1, 2, 3].map(n => `<i class="${(p?.stars || 0) >= n ? 'on' : ''}"></i>`).join('')}</span></button>`;
+    return `<button class="lamp-stop ${state} ${l.id === next ? 'current' : ''}" style="--x:${t * 100}%;--sag:${sag};--drop:${drops[i]}px;--i:${i}" data-level="${l.id}" ${!open ? 'disabled' : ''} aria-label="第${numerals[l.id - 1]}夜 ${l.name}${!open ? '，尚未解锁' : p ? `，${p.stars}星` : ''}"><span class="cord" aria-hidden="true"></span><span class="lantern" aria-hidden="true">${numerals[l.id - 1]}</span>${l.id === 2 && p?.hasItem ? '<svg class="boat-charm" viewBox="0 0 32 24" aria-label="纸船"><path d="M16 0v8" stroke="#bea271"/><path d="M4 13l10 2 8-8v7l7-1-7 8H11z" fill="#ead8ab"/><path d="m4 13 13 5 12-5" fill="none" stroke="#947b58"/></svg>' : ''}<strong>${l.name}</strong><span class="mechanic">${l.id === 5 && save.marketLit ? '夜摊已点亮' : l.id === 2 && p?.hasItem ? '已带回纸船' : p ? `最快 ${(p.tick / 20).toFixed(2)} 秒` : open ? mechanics[l.id - 1] : '尚未点亮'}</span><span class="pips" aria-hidden="true">${[1, 2, 3].map(n => `<i class="${(p?.stars || 0) >= n ? 'on' : ''}"></i>`).join('')}</span></button>`;
   }).join('');
   const lit = Object.keys(save.progress).length;
   $('map').toggleAttribute('data-complete', lit === 5);
@@ -176,7 +178,7 @@ function openLevel(id: number) {
   if (!unlocked(id)) return;
   liveLamp = false; waitingForTide = false; stallLit = false; checkpoint = null; stoneAvailable = false; rehearsal = false; level = playableLevel(id); screen = 'game'; mode = 'ready'; state = createState(level); previousX = state.x;
   document.body.dataset.scene = String(id);
-  audio.setScene(id, level.beatTicks / 20); resultNote = '';
+  audio.setScene(id, level.beatTicks / 20); resultNote = ''; trail = [];
   canvas.setAttribute('aria-label', `${level.name}与纸桥。使用方向键过桥，E键拾取。`);
   preview = null; triedFirstSwitch = false; repairHint = ''; borrowStartedAt = -Infinity;
   selectedCell = -1; selectedLamp = 1; isDemo = false; inputLog = []; lastAttempt = null; paused = false; txView = '';
@@ -310,7 +312,8 @@ function renderControls() {
 }
 function renderResult() {
   const stars = starsFor(level, state.finishTick!);
-  $('result').innerHTML = `<div><div class="result-details"><span class="stars" aria-label="${stars}星">${[1, 2, 3].map(n => `<i class="${n <= stars ? 'on' : ''}" style="--i:${n}">${n <= stars ? '★' : '☆'}</i>`).join('')}</span><h3>${isDemo ? '走法示范' : '这一夜，平安抵达。'}</h3></div><p>${(state.finishTick! / 20).toFixed(2)} 秒 · ${state.finishTick} 帧${resultNote && !isDemo ? `　<span class="pill record">${resultNote}</span>` : ''}${state.hasItem ? `　<span class="pill">${level.itemRequired ? (stallLit ? '夜摊亮了 · 提灯归来' : '提灯归来') : level.id === 2 ? '纸船已挂上第二盏灯' : '拾舟'}</span>` : ''}${level.borrowable && !isDemo ? '　借来的光，照完了一段路。' : ''}</p><div id="tx-status" class="tx-status">${txView || (isDemo ? '示范不计入成绩，请亲自走一遍。' : '本地成绩已保存。' + (!chain.contractAddress ? '合约部署后可继续上链。' : ''))}</div></div><div class="transaction-tools">${!isDemo ? button('把这束光写上链', 'submit', false, txBusy) : ''}${level.id < 5 && !isDemo ? button('去下一夜', 'next', true) : button('回到长街', 'map', true)}</div>`;
+  const chase = !isDemo && stars > 0 && stars < 3 ? `　<span class="pill">再快 ${((state.finishTick! - (stars === 2 ? level.par3 : level.par2)) / 20).toFixed(2)} 秒就是${stars === 2 ? '三' : '两'}星</span>` : '';
+  $('result').innerHTML = `<div><div class="result-details"><span class="stars" aria-label="${stars}星">${[1, 2, 3].map(n => `<i class="${n <= stars ? 'on' : ''}" style="--i:${n}">${n <= stars ? '★' : '☆'}</i>`).join('')}</span><h3>${isDemo ? '走法示范' : '这一夜，平安抵达。'}</h3></div><p>${(state.finishTick! / 20).toFixed(2)} 秒 · ${state.finishTick} 帧${resultNote && !isDemo ? `　<span class="pill${resultNote.startsWith('比') ? '' : ' record'}">${resultNote}</span>` : ''}${chase}${state.hasItem ? `　<span class="pill">${level.itemRequired ? (stallLit ? '夜摊亮了 · 提灯归来' : '提灯归来') : level.id === 2 ? '纸船已挂上第二盏灯' : '拾舟'}</span>` : ''}${level.borrowable && !isDemo ? '　借来的光，照完了一段路。' : ''}</p><div id="tx-status" class="tx-status">${txView || (isDemo ? '示范不计入成绩，请亲自走一遍。' : '本地成绩已保存。' + (!chain.contractAddress ? '合约部署后可继续上链。' : ''))}</div></div><div class="transaction-tools">${!isDemo ? button('把这束光写上链', 'submit', false, txBusy) : ''}${level.id < 5 && !isDemo ? button('去下一夜', 'next', true) : button('回到长街', 'map', true)}</div>`;
 }
 function renderAll() { renderTracks(); renderControls(); updateHeader(); }
 function updateCrossing() {
@@ -348,6 +351,8 @@ function updateClock() {
   const racing = (mode === 'playing' && !awaitingStep || mode === 'replay') && state.status === 'playing' && !rehearsal;
   const pace = racing ? starsFor(level, tick + 1) : 0;
   const clock = $('scene-clock');
+  const hurry = racing && mode === 'playing' && total - tick <= 40;
+  if (clock.hasAttribute('data-hurry') !== hurry) { clock.toggleAttribute('data-hurry', hurry); $('game').toggleAttribute('data-hurry', hurry); }
   clock.textContent = `${(tick / 20).toFixed(2)} / ${(total / 20).toFixed(1)} 秒${pace ? ' · ' + starText(pace) : ''}`;
   if (clock.dataset.pace !== String(pace)) {
     const dropped = pace > 0 && Number(clock.dataset.pace) > pace;
@@ -428,8 +433,12 @@ function finishRun(wasPlaying: boolean) {
       if (liveLamp) writeScore();
       if (level.id === 5 && stallLit) save.marketLit = true;
       const old = save.progress[level.id];
-      resultNote = !old ? '第一次点亮这盏灯' : state.finishTick! < old.tick ? `新纪录 · 快了 ${((old.tick - state.finishTick!) / 20).toFixed(2)} 秒` : '';
+      resultNote = !old ? '第一次点亮这盏灯' : state.finishTick! < old.tick ? `新纪录 · 快了 ${((old.tick - state.finishTick!) / 20).toFixed(2)} 秒` : state.finishTick! > old.tick ? `比最快慢 ${((state.finishTick! - old.tick) / 20).toFixed(2)} 秒` : '平了最快纪录';
       if (old && state.finishTick! < old.tick) audio.record();
+      if (state.finishTick! < (save.echo?.[level.id]?.length ?? Infinity) - 1) {
+        const run = Array.from(trail.slice(0, state.finishTick! + 1)); run[0] = createState(level).x;
+        if (run.length === state.finishTick! + 1 && run.every(Number.isInteger)) (save.echo ??= {})[level.id] = run;
+      }
       recordBest(save, level.id, { tick: state.finishTick!, stars: starsFor(level, state.finishTick!), hasItem: state.hasItem });
       save.recent = { stallLit: level.id === 5 && stallLit, level: level.id, score: [...score], inputs: inputLog.slice(0, state.finishTick), borrowed: [...borrowedScore()], borrowedId: level.borrowable ? borrowed.id : '0', seedKey: level.borrowable ? borrowed.seedKey : undefined, finishTick: state.finishTick!, hasItem: state.hasItem };
       persist(save);
@@ -465,6 +474,7 @@ function fixedUpdate() {
   if (mode === 'playing' && awaitingStep) {
     if (action === 0) return;
     awaitingStep = false; audio.begin(level.beatTicks / 20);
+    if (save.echo?.[level.id] && !rehearsal && echoTold !== level.id) { echoTold = level.id; toast('上一次的回声也在桥上，看谁先到风铃。'); }
     renderControls();
   }
   interactionQueued = false;
@@ -477,6 +487,11 @@ function fixedUpdate() {
   const hadItem = state.hasItem; const wasBusy = state.busy > 0;
   state = step(level, state, score, mode === 'replay' ? replayBorrowed : borrowedScore(), action);
   clockTick = state.tick;
+  if (mode === 'playing') {
+    trail[state.tick] = state.x;
+    const left = level.beats * level.beatTicks - state.tick;
+    if (!rehearsal && state.status === 'playing' && left <= 40 && left > 0 && left % 10 === 0) audio.hurry();
+  }
   if (level.id === 3) {
     const bank = level.gaps.find(g => g.kind === 'tide')!.a;
     $('scene-item').textContent = state.x <= bank && state.x >= bank - 600
@@ -491,6 +506,13 @@ function fixedUpdate() {
   updateClock();
   if (state.status !== 'playing') finishRun(mode === 'playing');
 }
+function echoAt(alpha: number): number | undefined {
+  const run = mode === 'playing' && !awaitingStep && !rehearsal ? save.echo?.[level.id] : undefined;
+  if (!run || run.length < 2) return undefined;
+  const last = run.length - 1;
+  const from = run[Math.min(last, Math.max(0, state.tick - 1))], to = run[Math.min(last, state.tick)];
+  return from + (to - from) * Math.max(0, Math.min(1, alpha));
+}
 function frame(now: number) {
   const delta = now - lastTime; lastTime = now;
   if (screen === 'game') {
@@ -498,7 +520,7 @@ function frame(now: number) {
       if (delta > 1000) pause(true);
       else { accumulator += Math.min(delta, 250); while (accumulator >= TICK_MS && !paused) { accumulator -= TICK_MS; fixedUpdate(); } }
     }
-    renderer.draw({ liveLamp, stallLit, level, state: mode === 'recording' ? { ...state, tick: recordTick } : state, score, borrowed: mode === 'replay' ? replayBorrowed : borrowedScore(), mode, time: now / 1000, alpha: accumulator / TICK_MS, previousX, selectedLamp, preview: mode === 'ready' ? preview : null, borrowArrival: mode === 'ready' ? Math.min(1, (now - borrowStartedAt) / 560) : 1, borrowedAuthor: level.borrowable ? (borrowed.id === '0' ? '内置掌灯人' : shortAddress(borrowed.author)) : undefined, paused });
+    renderer.draw({ liveLamp, stallLit, level, state: mode === 'recording' ? { ...state, tick: recordTick } : state, score, borrowed: mode === 'replay' ? replayBorrowed : borrowedScore(), mode, time: now / 1000, alpha: accumulator / TICK_MS, previousX, echoX: echoAt(accumulator / TICK_MS), selectedLamp, preview: mode === 'ready' ? preview : null, borrowArrival: mode === 'ready' ? Math.min(1, (now - borrowStartedAt) / 560) : 1, borrowedAuthor: level.borrowable ? (borrowed.id === '0' ? '内置掌灯人' : shortAddress(borrowed.author)) : undefined, paused });
   }
   requestAnimationFrame(frame);
 }
@@ -754,7 +776,8 @@ window.addEventListener('keyup', event => { const key = event.key.toLowerCase();
 window.addEventListener('blur', () => { held.clear(); interactionQueued = false; if (screen === 'game' && ['playing', 'recording', 'replay'].includes(mode)) pause(true); });
 document.addEventListener('visibilitychange', () => { if (document.hidden && screen === 'game' && ['playing', 'recording', 'replay'].includes(mode)) pause(true); });
 chain.onConnectionChange(updateHeader);
-for (const gesture of ['pointerdown', 'keydown'] as const) window.addEventListener(gesture, () => { void audio.unlock(); }, { once: true });
+const wakeAudio = () => { void audio.unlock(); };
+for (const gesture of ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'] as const) window.addEventListener(gesture, wakeAudio, { passive: true });
 updateHeader(); renderMap(); requestAnimationFrame(frame);
 const night = Number(new URLSearchParams(location.search).get('night'));
 if (Number.isInteger(night) && night >= 1 && night <= levels.length) { practice = true; openLevel(night); }

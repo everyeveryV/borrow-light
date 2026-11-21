@@ -65,6 +65,12 @@ button.primary:active:not(:disabled) { transform: translateY(1px) scale(.98) }
 #scene-clock[data-pace="2"] { color: #e8d9b5 }
 #scene-clock[data-pace="1"] { color: #b9c6c2 }
 
+/* 最后两秒：钟面和画框一起心跳 */
+@keyframes hurry { 50% { transform: scale(1.12) } }
+@keyframes hurry-frame { 50% { box-shadow: 0 0 0 1px rgba(255,138,110,.6), 0 0 38px rgba(255,110,80,.3) } }
+#scene-clock[data-hurry] { color: #ff9a7e; animation: hurry .5s ease-in-out infinite }
+#game[data-hurry] .frame { animation: hurry-frame .5s ease-in-out infinite }
+
 /* 灯谱：每一拍落下时，亮着的格子跳一下 */
 @keyframes beat-pop { from { transform: scaleY(1.35) } to { transform: none } }
 .cell.active.own, .cell.active.lent { animation: beat-pop .32s ease-out }

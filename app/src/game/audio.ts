@@ -15,6 +15,8 @@ export interface GameAudio {
   swap(): void;
   begin(beatSeconds?: number): void;
   record(): void;
+  /** The heartbeat of the last two seconds. */
+  hurry(): void;
   destroy(): void;
 }
 
@@ -294,6 +296,12 @@ export function createAudio(): GameAudio {
     }
   }
 
+  /** A short pulse on phones that can vibrate; quiet whenever sound is off. */
+  function buzz(pattern: number | number[]): void {
+    if (!enabled) return;
+    try { navigator.vibrate?.(pattern); } catch { /* Unsupported or blocked: play on. */ }
+  }
+
   return {
     get enabled() { return enabled; },
     get musicEnabled() { return music; },
@@ -326,6 +334,7 @@ export function createAudio(): GameAudio {
       noise(0.05, 0.016, foot ? 1500 : 1250, 700, 0, 'bandpass');
     },
     fall() {
+      buzz([25, 335, 110]);
       tone(220, 0.3, 0.06, 0, 92, 'triangle');
       tone(145, 0.3, 0.035, 0.12, 72);
       // The splash lands when the figure reaches the water, a little after the slip.
@@ -334,6 +343,7 @@ export function createAudio(): GameAudio {
       tone(92, 0.4, 0.05, 0.36, 48);
     },
     win(stars = 0) {
+      buzz([18, 60, 18, 60, 40]);
       [784, 1046.5, 1318.5, 1568].forEach((frequency, index) => {
         tone(frequency, 0.95, 0.055, index * 0.105);
         tone(frequency * 2.002, 0.55, 0.01, index * 0.105);
@@ -345,6 +355,7 @@ export function createAudio(): GameAudio {
       }
     },
     pickup() {
+      buzz(18);
       tone(587.33, 0.2, 0.04);
       tone(783.99, 0.42, 0.045, 0.12);
     },
@@ -352,6 +363,7 @@ export function createAudio(): GameAudio {
       tone(660, 0.06, 0.02, 0, 520, 'triangle');
     },
     swap() {
+      buzz(10);
       tone(523.25, 0.14, 0.035, 0, 783.99);
       noise(0.18, 0.02, 1800, 5200, 0, 'bandpass');
     },
@@ -370,6 +382,10 @@ export function createAudio(): GameAudio {
         tone(frequency, 0.28, 0.04, 1.35 + index * 0.09, frequency, 'triangle');
       });
       tone(1568, 0.9, 0.03, 1.71);
+    },
+    hurry() {
+      tone(98, 0.13, 0.085, 0, 62);
+      tone(98, 0.11, 0.06, 0.15, 62);
     },
     destroy() {
       disposed = true;

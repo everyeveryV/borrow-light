@@ -9,6 +9,8 @@ export interface SaveData {
   marketLit?: boolean;
   version: 2; progress: Record<number, Progress>; scores: Record<number, number[]>;
   recent: SavedRun | null; sound: boolean; music?: boolean;
+  /** The walker's position on every tick of the best crossing of each night. */
+  echo?: Record<number, number[]>;
 }
 const key = 'borrow-light-v2';
 export function loadSave(): SaveData {
@@ -32,7 +34,11 @@ export function loadSave(): SaveData {
       && Array.isArray(candidate.borrowed) && candidate.borrowed.length <= 32 && candidate.borrowed.every(n => Number.isInteger(n) && n >= 1 && n <= 5)
       && /^\d+$/.test(String(candidate.borrowedId)) && Number.isInteger(candidate.finishTick) && candidate.finishTick > 0
       ? candidate : null;
-    return { ...empty, marketLit: parsed.marketLit === true, progress, scores, recent, sound: parsed.music === undefined ? true : parsed.sound === true, music: parsed.music !== false };
+    const echo: Record<number, number[]> = {};
+    for (const [id, value] of Object.entries(parsed.echo || {})) {
+      if (+id >= 1 && +id <= 5 && Array.isArray(value) && value.length >= 2 && value.length <= 321 && value.every(n => Number.isInteger(n) && n >= 0 && n <= 20000)) echo[+id] = value;
+    }
+    return { ...empty, marketLit: parsed.marketLit === true, progress, scores, recent, echo, sound: parsed.music === undefined ? true : parsed.sound === true, music: parsed.music !== false };
   } catch { return empty; }
 }
 export function persist(data: SaveData) {
